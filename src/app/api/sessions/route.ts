@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { desc } from 'drizzle-orm'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
@@ -51,6 +52,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     })
 
     return NextResponse.json({ sessionId }, { status: 201 })
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function GET(): Promise<NextResponse> {
+  try {
+    const allSessions = db.select().from(sessions).orderBy(desc(sessions.updatedAt)).all()
+    const result = allSessions.map((session) => {
+      let gameSystemName = session.gameSystemId
+      try { gameSystemName = gameSystemRegistry.get(session.gameSystemId).name } catch { /* unknown system */ }
+      return {
+        id: session.id,
+        gameSystemName,
+        bookTitle: session.bookTitle,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      }
+    })
+    return NextResponse.json(result)
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
