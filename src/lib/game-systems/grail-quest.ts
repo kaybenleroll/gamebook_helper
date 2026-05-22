@@ -131,7 +131,7 @@ export const grailQuestCombat: CombatModule = {
       enemyRoll,
       combatModifiers: {},
       enemyXp: typeof s.xp === 'number' ? s.xp : 0,
-      playerThreshold: (input as any).playerThreshold ?? 7,
+      playerThreshold: (input as any).playerThreshold ?? 6,
     }
 
     return { enemyState, metadata }
@@ -181,7 +181,7 @@ export const grailQuestCombat: CombatModule = {
 
     const metadataRecord = args.metadata as GqMetadata
     const metadataPlayerThreshold =
-      typeof metadataRecord?.playerThreshold === 'number' ? metadataRecord.playerThreshold : 7
+      typeof metadataRecord?.playerThreshold === 'number' ? metadataRecord.playerThreshold : 6
 
     const riskyAttack = args.chosenOptions['riskyAttack'] === true
 
@@ -198,13 +198,13 @@ export const grailQuestCombat: CombatModule = {
       damageDealt = riskyAttack ? raw * 2 : raw
     }
 
-    // Enemy attack — roll 2d6; hit if ≥ enemyThreshold (default 7); damage = roll − 6
+    // Enemy attack — roll 2d6; hit if ≥ enemyThreshold (default 6); damage = roll − 6
     const enemyDice = rollDice(2, 6)
     const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
     const enemyThreshold =
       typeof (args.enemyStats as any)?.enemyThreshold === 'number'
         ? (args.enemyStats as any).enemyThreshold as number
-        : 7
+        : 6
     const enemyHit = enemyRoll >= enemyThreshold
     const damageTaken = enemyHit ? Math.max(0, enemyRoll - 6) : 0
 
@@ -214,7 +214,7 @@ export const grailQuestCombat: CombatModule = {
 
     // Determine outcome
     let outcome: CombatOutcome | null = null
-    if (newCurrentLifePoints <= 0) {
+    if (newCurrentLifePoints <= 5) {
       outcome = 'player_won'
     } else if (playerCurrentLp - damageTaken <= 0) {
       outcome = 'player_lost'

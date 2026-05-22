@@ -124,8 +124,8 @@ describe('start', () => {
 })
 
 describe('resolveRound — basic hit / miss mechanics', () => {
-  it('roll ≥ 7 is a hit, damage = roll − 6', () => {
-    // Force 2d6 to return [4, 3] = 7 → hit, damage 1
+  it('roll ≥ 6 is a hit, damage = roll − 6', () => {
+    // Force 2d6 to return [3, 4] = 7 → hit, damage 1
     vi.spyOn(Math, 'random')
       .mockReturnValueOnce((3 - 1) / 6)  // first die: 3
       .mockReturnValueOnce((4 - 1) / 6)  // second die: 4 → sum 7
@@ -139,8 +139,25 @@ describe('resolveRound — basic hit / miss mechanics', () => {
     }
   })
 
-  it('roll exactly 7 → 1 damage', () => {
-    // [3+4]=7 → damage 1
+  it('roll exactly 6 → hit, 0 damage (glancing blow)', () => {
+    // [3+3]=6 → hit, damage = max(0, 6−6) = 0
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((3 - 1) / 6)  // player die 1: 3
+      .mockReturnValueOnce((3 - 1) / 6)  // player die 2: 3 → sum 6
+      .mockReturnValueOnce(0)             // enemy miss
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith()
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['playerHit']).toBe(true)
+      expect(result.damageDealt).toBe(0)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('roll exactly 7 → hit, 1 damage', () => {
+    // [3+4]=7 → hit, damage 1
     vi.spyOn(Math, 'random')
       .mockReturnValueOnce((3 - 1) / 6)
       .mockReturnValueOnce((4 - 1) / 6)
@@ -166,7 +183,22 @@ describe('resolveRound — basic hit / miss mechanics', () => {
     }
   })
 
-  it('roll ≤ 6 → miss, 0 damage', () => {
+  it('roll 5 → miss, 0 damage', () => {
+    // [2+3]=5 → miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((2 - 1) / 6)  // player die 1: 2
+      .mockReturnValueOnce((3 - 1) / 6)  // player die 2: 3 → sum 5
+      .mockReturnValueOnce(0)             // enemy miss
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith()
+      expect(result.damageDealt).toBe(0)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('roll 2 (min) → miss, 0 damage', () => {
     // [1+1]=2 → miss
     vi.spyOn(Math, 'random').mockReturnValue(0) // always min face (1)
     try {
@@ -179,23 +211,23 @@ describe('resolveRound — basic hit / miss mechanics', () => {
 })
 
 describe('resolveRound — risky attack (nose bop)', () => {
-  it('uses threshold 9 for risky attack', () => {
+  it('uses threshold 8 for risky attack (default 6 + 2)', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99)
     try {
       const risky = resolveWith({ chosenOptions: { riskyAttack: true } })
       const detail = risky.detail as Record<string, unknown>
-      expect(detail['playerThreshold']).toBe(9)
+      expect(detail['playerThreshold']).toBe(8)
     } finally {
       vi.restoreAllMocks()
     }
   })
 
-  it('uses threshold 7 for normal attack', () => {
+  it('uses threshold 6 for normal attack', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99)
     try {
       const normal = resolveWith({ chosenOptions: { riskyAttack: false } })
       const detail = normal.detail as Record<string, unknown>
-      expect(detail['playerThreshold']).toBe(7)
+      expect(detail['playerThreshold']).toBe(6)
     } finally {
       vi.restoreAllMocks()
     }
@@ -216,10 +248,10 @@ describe('resolveRound — risky attack (nose bop)', () => {
     }
   })
 
-  it('roll 8 risky attack → miss (8 < 9)', () => {
-    // Force player dice [4+4]=8, enemy dice miss
+  it('roll 7 risky attack → miss (7 < 8)', () => {
+    // Force player dice [3+4]=7, enemy dice miss
     vi.spyOn(Math, 'random')
-      .mockReturnValueOnce((4 - 1) / 6)
+      .mockReturnValueOnce((3 - 1) / 6)
       .mockReturnValueOnce((4 - 1) / 6)
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0)
@@ -245,7 +277,7 @@ describe('resolveRound — risky attack (nose bop)', () => {
 })
 
 describe('resolveRound — enemy attack', () => {
-  it('enemy roll ≥ 7 hits player, damage = enemyRoll − 6', () => {
+  it('enemy roll ≥ 6 hits player, damage = enemyRoll − 6', () => {
     // Force enemy dice [6+6]=12 → damage 6; player dice miss
     vi.spyOn(Math, 'random')
       .mockReturnValueOnce(0)    // player die 1: 1
@@ -260,8 +292,9 @@ describe('resolveRound — enemy attack', () => {
     }
   })
 
-  it('enemy roll ≤ 6 → miss, 0 damage to player', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0) // all dice roll 1 → sum 2 < 7
+  it('enemy roll ≤ 5 → miss, 0 damage to player', () => {
+    // [1+1]=2 → miss (2 < 6)
+    vi.spyOn(Math, 'random').mockReturnValue(0) // all dice roll 1 → sum 2 < 6
     try {
       const result = resolveWith()
       expect(result.damageTaken).toBe(0)
@@ -272,16 +305,43 @@ describe('resolveRound — enemy attack', () => {
 })
 
 describe('resolveRound — win/lose conditions', () => {
-  it('returns player_won when enemy currentLifePoints reaches 0', () => {
+  it('returns player_won when enemy currentLifePoints falls to ≤ 5', () => {
+    // Enemy starts at 6 LP; player rolls max (12), damage = 6 → 6 − 6 = 0 LP remaining → ≤ 5
     vi.spyOn(Math, 'random').mockReturnValue(0.99) // force high rolls
     try {
       const result = resolveWith({
-        enemyState: makeEnemyState(1),
+        enemyState: makeEnemyState(6),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
       })
-      if (result.damageDealt >= 1) {
-        expect(result.outcome).toBe('player_won')
-      }
+      expect(result.outcome).toBe('player_won')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('returns player_won when enemy LP drops to exactly 5 (knockout)', () => {
+    // Enemy starts at 11 LP; player roll 12 → damage 6 → 11 − 6 = 5 → ≤ 5
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // force max roll (12)
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(11),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+      })
+      expect(result.outcome).toBe('player_won')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('returns null when enemy LP drops to 6 (combat continues)', () => {
+    // Enemy starts at 12 LP; player roll 12 → damage 6 → 12 − 6 = 6 → > 5, combat continues
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // force max roll (12)
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(12),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+      })
+      expect(result.outcome).toBeNull()
     } finally {
       vi.restoreAllMocks()
     }
@@ -327,11 +387,10 @@ describe('resolveRound — combat modifiers', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0) // dice always 1 → sum 2
     try {
       const normal = resolveWith()
-      // 2 < 7 → miss
+      // 2 < 6 → miss
       expect(normal.damageDealt).toBe(0)
 
-      // Override threshold to 2 → hit with roll 2, damage = 2 − 6 clamped to 0 … actually 0
-      // Use threshold 1 so roll 2 > 1 and damage = max(0, 2-6) = 0 — test hit flag instead
+      // Override threshold to 2 → hit with roll 2, damage = max(0, 2−6) = 0 — test hit flag instead
       const overrideThreshold = resolveWith({
         combatModifiers: { playerThreshold: 2 }, // roll 2 ≥ 2 → hit, damage max(0, 2−6)=0
       })
