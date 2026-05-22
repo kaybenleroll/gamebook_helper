@@ -3,13 +3,14 @@ import Link from 'next/link'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
-import { sessions, characters, sectionVisits, combats, combatRounds } from '../../../lib/db/schema'
+import { sessions, characters, sectionVisits, combats, combatRounds, inventoryItems } from '../../../lib/db/schema'
 import type { CreationRolls } from '../../../lib/db/schema'
 import { eq, asc, desc } from 'drizzle-orm'
 import SessionClient from './SessionClient'
 import DiceRoller from './DiceRoller'
 import MapGrid from './MapGrid'
 import SectionTracker from './SectionTracker'
+import InventoryPanel from './InventoryPanel'
 
 export default async function SessionPage({
   params,
@@ -110,6 +111,24 @@ export default async function SessionPage({
     }
   }
 
+  const inventoryForClient = db
+    .select()
+    .from(inventoryItems)
+    .where(eq(inventoryItems.sessionId, sessionId))
+    .orderBy(asc(inventoryItems.createdAt))
+    .all()
+    .map((item) => ({
+      id: item.id,
+      sessionId: item.sessionId,
+      name: item.name,
+      quantity: item.quantity,
+      isSpecial: item.isSpecial,
+      createdAt:
+        item.createdAt instanceof Date
+          ? item.createdAt.toISOString()
+          : new Date((item.createdAt as number) * 1000).toISOString(),
+    }))
+
   return (
     <main className="p-8">
       <div className="mb-6">
@@ -148,6 +167,11 @@ export default async function SessionPage({
         sessionId={sessionId}
         initialCurrentSection={currentSection}
         initialHistory={sectionHistoryForClient}
+      />
+      <InventoryPanel
+        sessionId={sessionId}
+        gameSystemId={session.gameSystemId}
+        initialItems={inventoryForClient}
       />
       <MapGrid sessionId={sessionId} />
     </main>

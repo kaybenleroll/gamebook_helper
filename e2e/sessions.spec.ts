@@ -34,7 +34,7 @@ test.describe('sessions list with data', () => {
 
     const sessionLink = page.locator(`a[href="/sessions/${sessionId}"]`)
     const listItem = sessionLink.locator('..')
-    await listItem.getByRole('button').click()
+    await listItem.getByRole('button', { name: /^Delete /i }).click()
 
     await expect(page.getByText('Delete Adventure')).toBeVisible()
 
@@ -66,7 +66,7 @@ test('delete removes session from list immediately', async ({ page }) => {
 
   // The delete button is the sibling button in the same list item
   const listItem = sessionLink.locator('..')
-  const deleteButton = listItem.getByRole('button')
+  const deleteButton = listItem.getByRole('button', { name: /^Delete /i })
   await deleteButton.click()
 
   // Type exact title to enable delete
