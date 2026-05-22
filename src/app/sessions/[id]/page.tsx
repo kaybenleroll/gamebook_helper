@@ -132,8 +132,8 @@ export default async function SessionPage({
     }))
 
   return (
-    <main className="p-8">
-      <div className="mb-6">
+    <main className="p-4 h-screen flex flex-col">
+      <div className="mb-4 shrink-0">
         <Link href="/sessions" className="text-sm text-blue-600 hover:underline">
           ← All adventures
         </Link>
@@ -142,7 +142,7 @@ export default async function SessionPage({
       </div>
 
       {isGameOver && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded">
+        <div className="mb-4 shrink-0 p-4 bg-red-50 border border-red-300 rounded">
           <p className="font-bold text-red-700 text-lg">Game Over</p>
           <p className="text-red-600 mt-1">Your adventure has ended.</p>
           <Link href="/sessions/new" className="inline-block mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
@@ -151,34 +151,43 @@ export default async function SessionPage({
         </div>
       )}
 
-      <SessionClient
-        sessionId={sessionId}
-        stats={stats}
-        initialStats={character.initialStats as Record<string, unknown>}
-        statDefs={gameSystem.stats}
-        gameSystemId={session.gameSystemId}
-        isGameOver={isGameOver}
-        initialCombat={activeCombatWithRounds}
-        enemyStatFields={gameSystem.combat?.enemyStatFields ?? null}
-        primaryHealthStat={gameSystem.primaryHealthStat}
-        primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
-        creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
-      />
-      <DiceRoller defaultDice={gameSystem.defaultDice} />
-      <SectionTracker
-        sessionId={sessionId}
-        initialCurrentSection={currentSection}
-        initialHistory={sectionHistoryForClient}
-      />
-      <InventoryPanel
-        sessionId={sessionId}
-        gameSystemId={session.gameSystemId}
-        initialItems={inventoryForClient}
-      />
-      <Notes sessionId={sessionId} initialNotes={session.notes ?? null} />
-      <Suspense fallback={<div className="mt-6 p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
-        <MapGrid sessionId={sessionId} />
-      </Suspense>
+      <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0">
+        {/* Left column: game panels, scrollable */}
+        <div className="w-full lg:w-[420px] lg:shrink-0 overflow-y-auto flex flex-col gap-4">
+          <SessionClient
+            sessionId={sessionId}
+            stats={stats}
+            initialStats={character.initialStats as Record<string, unknown>}
+            statDefs={gameSystem.stats}
+            gameSystemId={session.gameSystemId}
+            isGameOver={isGameOver}
+            initialCombat={activeCombatWithRounds}
+            enemyStatFields={gameSystem.combat?.enemyStatFields ?? null}
+            primaryHealthStat={gameSystem.primaryHealthStat}
+            primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
+            creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
+          />
+          <DiceRoller defaultDice={gameSystem.defaultDice} />
+          <SectionTracker
+            sessionId={sessionId}
+            initialCurrentSection={currentSection}
+            initialHistory={sectionHistoryForClient}
+          />
+          <InventoryPanel
+            sessionId={sessionId}
+            gameSystemId={session.gameSystemId}
+            initialItems={inventoryForClient}
+          />
+          <Notes sessionId={sessionId} initialNotes={session.notes ?? null} />
+        </div>
+
+        {/* Right column: map, fills remaining space */}
+        <div className="flex-1 min-w-0 flex flex-col min-h-[520px] lg:min-h-0">
+          <Suspense fallback={<div className="p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
+            <MapGrid sessionId={sessionId} />
+          </Suspense>
+        </div>
+      </div>
     </main>
   )
 }
