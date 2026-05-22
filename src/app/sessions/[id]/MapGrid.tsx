@@ -55,6 +55,9 @@ export default function MapGrid({ sessionId }: Props) {
   // Selection state — which node (by id) has the detail panel open
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null)
 
+  // Selection state — which edge has the detail panel open
+  const [selectedEdge, setSelectedEdge] = useState<MapEdge | null>(null)
+
   // Pending placement — set when the direction picker should be shown
   const [pendingPlacement, setPendingPlacement] = useState<{ worldX: number; worldY: number } | null>(null)
 
@@ -191,6 +194,39 @@ export default function MapGrid({ sessionId }: Props) {
       alert('Failed to delete map. Please try again.')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function handleEdgeUpdate(edgeId: number, updates: { direction?: string | null; connectionType?: string }) {
+    const previous = edges
+    setEdges((prev) => prev.map((e) => (e.id === edgeId ? { ...e, ...updates } : e)))
+    setSelectedEdge((prev) => (prev?.id === edgeId ? { ...prev, ...updates } : prev))
+    try {
+      const res = await fetch(`/api/maps/${activeMapId}/edges/${edgeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
+      if (!res.ok) throw new Error('PATCH failed')
+    } catch (err) {
+      console.error('Failed to update edge:', err)
+      setEdges(previous)
+      setSelectedEdge((prev) => (prev?.id === edgeId ? previous.find((e) => e.id === edgeId) ?? null : prev))
+    }
+  }
+
+  async function handleEdgeDelete(edgeId: number) {
+    const previous = edges
+    setEdges((prev) => prev.filter((e) => e.id !== edgeId))
+    setSelectedEdge((prev) => (prev?.id === edgeId ? null : prev))
+    try {
+      const res = await fetch(`/api/maps/${activeMapId}/edges/${edgeId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) throw new Error('DELETE failed')
+    } catch (err) {
+      console.error('Failed to delete edge:', err)
+      setEdges(previous)
     }
   }
 
@@ -425,7 +461,15 @@ export default function MapGrid({ sessionId }: Props) {
               onBackgroundClick={handleBackgroundClick}
               onNodeClick={(index) => {
                 const node = nodes[index]
-                if (node) setSelectedNodeId(node.id)
+                if (node) {
+                  setSelectedEdge(null)
+                  setSelectedNodeId(node.id)
+                }
+              }}
+              selectedEdgeId={selectedEdge?.id ?? null}
+              onEdgeClick={(edge) => {
+                setSelectedNodeId(null)
+                setSelectedEdge(edge)
               }}
             />
           </div>
@@ -442,6 +486,70 @@ export default function MapGrid({ sessionId }: Props) {
                 onNodesChange={setNodes}
                 onAddConnectedNode={handleAddConnectedNodeFromPanel}
               />
+            )
+          })()}
+
+          {selectedEdge !== null && (() => {
+            const edge = edges.find((e) => e.id === selectedEdge.id) ?? selectedEdge
+            return (
+              <div className="w-72 border-l border-gray-200 bg-white flex flex-col flex-shrink-0 overflow-y-auto">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700">Edge</h3>
+                  <button
+                    className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                    onClick={() => setSelectedEdge(null)}
+                    aria-label="Close panel"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="px-4 py-3 space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Connection type
+                    </label>
+                    <select
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      value={edge.connectionType}
+                      onChange={(e) => void handleEdgeUpdate(edge.id, { connectionType: e.target.value })}
+                    >
+                      <option value="open">Open</option>
+                      <option value="door">Door</option>
+                      <option value="locked">Locked</option>
+                      <option value="secret">Secret</option>
+                      <option value="one_way">One-way</option>
+                      <option value="blocked">Blocked</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Direction
+                    </label>
+                    <select
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      value={edge.direction ?? ''}
+                      onChange={(e) => void handleEdgeUpdate(edge.id, { direction: e.target.value || null })}
+                    >
+                      <option value="">None</option>
+                      <option value="N">N</option>
+                      <option value="S">S</option>
+                      <option value="E">E</option>
+                      <option value="W">W</option>
+                      <option value="up">Up</option>
+                      <option value="down">Down</option>
+                    </select>
+                  </div>
+
+                  <button
+                    className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-medium transition-colors"
+                    onClick={() => void handleEdgeDelete(edge.id)}
+                  >
+                    Delete edge
+                  </button>
+                </div>
+              </div>
             )
           })()}
 
