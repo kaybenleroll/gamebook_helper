@@ -3,11 +3,12 @@ import Link from 'next/link'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
-import { sessions, characters } from '../../../lib/db/schema'
-import { eq } from 'drizzle-orm'
+import { sessions, characters, sectionVisits } from '../../../lib/db/schema'
+import { eq, asc } from 'drizzle-orm'
 import CharacterSheet from './CharacterSheet'
 import DiceRoller from './DiceRoller'
 import MapGrid from './MapGrid'
+import SectionTracker from './SectionTracker'
 
 export default async function SessionPage({
   params,
@@ -33,6 +34,24 @@ export default async function SessionPage({
 
   const stats = character.stats as Record<string, number>
   const isGameOver = (stats[gameSystem.primaryHealthStat] ?? 0) <= 0
+
+  const sectionHistory = db
+    .select()
+    .from(sectionVisits)
+    .where(eq(sectionVisits.sessionId, sessionId))
+    .orderBy(asc(sectionVisits.visitedAt))
+    .all()
+
+  const currentSection = sectionHistory.length > 0
+    ? sectionHistory[sectionHistory.length - 1].sectionNumber
+    : null
+
+  const sectionHistoryForClient = sectionHistory.map((v) => ({
+    sectionNumber: v.sectionNumber,
+    visitedAt: v.visitedAt instanceof Date
+      ? v.visitedAt.toISOString()
+      : new Date((v.visitedAt as number) * 1000).toISOString(),
+  }))
 
   return (
     <main className="p-8">
@@ -62,6 +81,11 @@ export default async function SessionPage({
         isGameOver={isGameOver}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
+      <SectionTracker
+        sessionId={sessionId}
+        initialCurrentSection={currentSection}
+        initialHistory={sectionHistoryForClient}
+      />
       <MapGrid sessionId={sessionId} />
     </main>
   )

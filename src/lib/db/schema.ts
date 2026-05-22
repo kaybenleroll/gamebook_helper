@@ -110,3 +110,18 @@ export const mapEdges = sqliteTable(
     uniqueIndex('map_edges_position_idx').on(t.mapId, t.x1, t.y1, t.x2, t.y2),
   ],
 )
+
+export const sectionVisits = sqliteTable(
+  'section_visits',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    sectionNumber: integer('section_number').notNull(),
+    visitedAt: integer('visited_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index('section_visits_session_id_idx').on(t.sessionId)],
+)
