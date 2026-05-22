@@ -27,6 +27,10 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 
 **When spawning a subagent that creates commits, branches, or PRs: read `.claude/rules/subagent-git.md` and include its full contents verbatim in the subagent prompt before the task description.** Subagents have no parent context and consistently miss `Closes #N`, requiring manual issue closure.
 
+- After parallel subagent merges, pull main and verify integrated state before dispatching the next round.
+- Confirm the previous PR is merged and working directory is clean on main before starting the next task.
+- Before creating a bug issue, check if an open PR already covers that code area — fold the fix into that branch instead.
+
 ## GitHub and Just
 
 - **Always use `gh` CLI for any `mcp__github__*` call involving arrays or numeric IDs.** Upstream SDK bug (anthropics/claude-code#18260) serialises these as strings.
@@ -45,6 +49,7 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 
 - **`/pcc` is decision support only** — present pros/cons/recommendation then stop; do not act until user directs.
 - **Don't promote deferred backlog items to next action without explicit user confirmation** — scope decisions rest with the user.
+- Do not suggest removing the `git push --force` permission gate — rebase friction is accepted in exchange for safety.
 - **Long-running background tasks use the main thread's background queue (Monitor/TaskOutput), not subagents** — subagents exit after initiating without lifecycle awareness.
 - Analyse systematic failures before re-running expensive experiments — re-collecting without prompt changes produces the same result.
 
