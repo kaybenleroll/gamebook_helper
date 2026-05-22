@@ -49,6 +49,7 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 
 - **`/pcc` is decision support only** — present pros/cons/recommendation then stop; do not act until user directs.
 - **Don't promote deferred backlog items to next action without explicit user confirmation** — scope decisions rest with the user.
+- Do not suggest removing the `git push --force` permission gate — rebase friction is accepted in exchange for safety.
 - **Long-running background tasks use the main thread's background queue (Monitor/TaskOutput), not subagents** — subagents exit after initiating without lifecycle awareness.
 - Analyse systematic failures before re-running expensive experiments — re-collecting without prompt changes produces the same result.
 
