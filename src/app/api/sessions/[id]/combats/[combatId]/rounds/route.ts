@@ -213,6 +213,16 @@ export async function POST(
       )
       .get()!
 
+    const availableRoundOptions =
+      updatedCombat.outcome === 'in_progress' && gameSystem.combat
+        ? gameSystem.combat.roundOptions({
+            enemyStats: updatedCombat.enemyStats,
+            enemyState: finalEnemyState,
+            metadata: updatedCombat.metadata,
+            characterStats: newStats,
+          })
+        : undefined
+
     return NextResponse.json(
       {
         round: {
@@ -228,6 +238,7 @@ export async function POST(
           outcome: updatedCombat.outcome,
           enemyState: updatedCombat.enemyState,
           endedAt: formatTs(updatedCombat.endedAt),
+          ...(availableRoundOptions !== undefined ? { availableRoundOptions } : {}),
         },
         characterStats: newStats,
         characterInitialStats: newInitialStats,

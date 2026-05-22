@@ -24,13 +24,14 @@ interface CombatData {
   outcome: string
   startedAt: string
   endedAt: string | null
+  availableRoundOptions?: RoundOption[]
   rounds: CombatRound[]
 }
 
 interface Props {
   sessionId: number
   initialCombat: CombatData | null
-  combatModule: CombatModule
+  enemyStatFields: CombatModule['enemyStatFields']
   characterStats: Record<string, unknown>
   initialStats: Record<string, unknown>
   isGameOver: boolean
@@ -82,7 +83,7 @@ function RoundLogEntry({ round }: { round: CombatRound }) {
 export default function CombatPanel({
   sessionId,
   initialCombat,
-  combatModule,
+  enemyStatFields,
   characterStats,
   initialStats,
   isGameOver,
@@ -124,7 +125,7 @@ export default function CombatPanel({
     try {
       // Convert form values to correct types
       const payload: Record<string, unknown> = {}
-      for (const field of combatModule.enemyStatFields) {
+      for (const field of enemyStatFields) {
         const raw = enemyForm[field.key] ?? ''
         if (field.type === 'number') {
           const n = parseFloat(raw)
@@ -174,7 +175,7 @@ export default function CombatPanel({
       if (res.ok) {
         const data = (await res.json()) as {
           round: CombatRound
-          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null }
+          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null; availableRoundOptions?: RoundOption[] }
           characterStats: Record<string, unknown>
           characterInitialStats: Record<string, unknown>
           xpPrompt?: boolean
@@ -187,6 +188,7 @@ export default function CombatPanel({
             enemyState: data.combat.enemyState,
             outcome: data.combat.outcome,
             endedAt: data.combat.endedAt,
+            availableRoundOptions: data.combat.availableRoundOptions,
             rounds: [...prev.rounds, data.round],
           }
         })
@@ -254,7 +256,7 @@ export default function CombatPanel({
       if (res.ok) {
         const data = (await res.json()) as {
           round: CombatRound
-          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null }
+          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null; availableRoundOptions?: RoundOption[] }
           characterStats: Record<string, unknown>
           characterInitialStats: Record<string, unknown>
           xpPrompt?: boolean
@@ -266,6 +268,7 @@ export default function CombatPanel({
             enemyState: data.combat.enemyState,
             outcome: data.combat.outcome,
             endedAt: data.combat.endedAt,
+            availableRoundOptions: data.combat.availableRoundOptions,
             rounds: [...prev.rounds, data.round],
           }
         })
@@ -325,12 +328,7 @@ export default function CombatPanel({
   // ---- Helpers ----
 
   const activeCombatOptions: RoundOption[] = combat?.outcome === 'in_progress'
-    ? combatModule.roundOptions({
-        enemyStats: combat.enemyStats,
-        enemyState: combat.enemyState,
-        metadata: combat.metadata,
-        characterStats,
-      })
+    ? (combat.availableRoundOptions ?? [])
     : []
 
   const enemyCurrentStamina =
@@ -406,7 +404,7 @@ export default function CombatPanel({
           ) : (
             <div className="border rounded p-4 max-w-md">
               <h3 className="font-semibold mb-3">New fight</h3>
-              {combatModule.enemyStatFields.map((field) => (
+              {enemyStatFields.map((field) => (
                 <div key={field.key} className="flex items-center gap-2 mb-2">
                   <label className="w-28 text-sm shrink-0">
                     {field.label}

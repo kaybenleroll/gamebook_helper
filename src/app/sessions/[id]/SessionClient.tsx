@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { StatDefinition } from '../../../lib/game-systems/types'
-import type { CombatModule } from '../../../lib/game-systems/types'
+import type { StatDefinition, CombatModule } from '../../../lib/game-systems/types'
 import CharacterSheet from './CharacterSheet'
 import CombatPanel from './CombatPanel'
 
@@ -25,6 +24,7 @@ interface CombatData {
   outcome: string
   startedAt: string
   endedAt: string | null
+  availableRoundOptions?: import('../../../lib/game-systems/types').RoundOption[]
   rounds: CombatRound[]
 }
 
@@ -36,7 +36,7 @@ interface Props {
   gameSystemId: string
   isGameOver: boolean
   initialCombat: CombatData | null
-  combatModule: CombatModule | null
+  enemyStatFields: CombatModule['enemyStatFields'] | null
 }
 
 /**
@@ -52,7 +52,7 @@ export default function SessionClient({
   gameSystemId,
   isGameOver,
   initialCombat,
-  combatModule,
+  enemyStatFields,
 }: Props) {
   const [stats, setStats] = useState(initialStatsProp)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
@@ -76,11 +76,11 @@ export default function SessionClient({
         isGameOver={isGameOver}
         onStatsChange={handleStatsChange}
       />
-      {combatModule && (
+      {enemyStatFields && (
         <CombatPanel
           sessionId={sessionId}
           initialCombat={initialCombat}
-          combatModule={combatModule}
+          enemyStatFields={enemyStatFields}
           characterStats={stats}
           initialStats={currentInitialStats}
           isGameOver={isGameOver}

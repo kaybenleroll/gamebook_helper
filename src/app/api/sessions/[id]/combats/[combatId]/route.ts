@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import '../../../../../../lib/game-systems/index'
+import { gameSystemRegistry } from '../../../../../../lib/game-systems/registry'
 import { db } from '../../../../../../lib/db'
-import { sessions, combats, combatRounds } from '../../../../../../lib/db/schema'
+import { sessions, characters, combats, combatRounds } from '../../../../../../lib/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../lib/db/schema'
+import type { GameSystem } from '../../../../../../lib/game-systems/types'
 
 function formatTimestamp(value: Date | number | null): string | null {
   if (!value) return null
@@ -13,7 +16,19 @@ function formatTimestamp(value: Date | number | null): string | null {
 function formatCombat(
   combat: typeof combats.$inferSelect,
   rounds: (typeof combatRounds.$inferSelect)[],
+  gameSystem?: GameSystem,
+  characterStats?: Record<string, unknown>,
 ) {
+  const availableRoundOptions =
+    combat.outcome === 'in_progress' && gameSystem?.combat && characterStats
+      ? gameSystem.combat.roundOptions({
+          enemyStats: combat.enemyStats,
+          enemyState: combat.enemyState,
+          metadata: combat.metadata,
+          characterStats,
+        })
+      : undefined
+
   return {
     id: combat.id,
     sessionId: combat.sessionId,
@@ -24,6 +39,7 @@ function formatCombat(
     outcome: combat.outcome,
     startedAt: formatTimestamp(combat.startedAt)!,
     endedAt: formatTimestamp(combat.endedAt),
+    ...(availableRoundOptions !== undefined ? { availableRoundOptions } : {}),
     rounds: rounds.map((r) => ({
       id: r.id,
       roundNumber: r.roundNumber,
@@ -50,6 +66,16 @@ export async function GET(
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
+    let gameSystem
+    try {
+      gameSystem = gameSystemRegistry.get(session.gameSystemId)
+    } catch {
+      return NextResponse.json({ error: 'Unknown game system' }, { status: 500 })
+    }
+
+    const character = db.select().from(characters).where(eq(characters.sessionId, sessionId)).get()
+    const characterStats = character ? (character.stats as Record<string, unknown>) : undefined
+
     const combat = db
       .select()
       .from(combats)
@@ -64,7 +90,7 @@ export async function GET(
       .orderBy(asc(combatRounds.roundNumber))
       .all()
 
-    return NextResponse.json(formatCombat(combat, rounds))
+    return NextResponse.json(formatCombat(combat, rounds, gameSystem, characterStats))
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
