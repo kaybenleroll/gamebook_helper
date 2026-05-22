@@ -20,7 +20,7 @@ test('game-over modal appears when LP hits zero', async ({ page }) => {
   if (await gotIt2.isVisible()) await gotIt2.click()
 
   // Click minus to bring LP to 0
-  await page.getByLabel('Decrease Life Points').click()
+  await page.getByLabel('Decrease Life Points', { exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Game Over' })).toBeVisible({ timeout: 3000 })
   await expect(page.getByText('Your Life Points have reached zero')).toBeVisible()
 

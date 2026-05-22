@@ -138,7 +138,15 @@ export default function CharacterSheet({
               <tr key={stat.key} className="border-b last:border-0">
                 <td className="py-2 pr-4">{stat.label}</td>
                 <td className="py-2 pr-4">
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => adjust(stat.key, -5)}
+                      disabled={isGameOver || atMin}
+                      className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
+                      aria-label={`Decrease ${stat.label} by 5`}
+                    >
+                      −5
+                    </button>
                     <button
                       onClick={() => adjust(stat.key, -1)}
                       disabled={isGameOver || atMin}
@@ -155,6 +163,14 @@ export default function CharacterSheet({
                       aria-label={`Increase ${stat.label}`}
                     >
                       +
+                    </button>
+                    <button
+                      onClick={() => adjust(stat.key, +5)}
+                      disabled={isGameOver || atMax}
+                      className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
+                      aria-label={`Increase ${stat.label} by 5`}
+                    >
+                      +5
                     </button>
                     <input
                       type="text"
