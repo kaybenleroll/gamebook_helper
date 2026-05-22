@@ -3,9 +3,9 @@ import Link from 'next/link'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
-import { sessions, characters, sectionVisits } from '../../../lib/db/schema'
-import { eq, asc } from 'drizzle-orm'
-import CharacterSheet from './CharacterSheet'
+import { sessions, characters, sectionVisits, combats, combatRounds } from '../../../lib/db/schema'
+import { eq, asc, desc } from 'drizzle-orm'
+import SessionClient from './SessionClient'
 import DiceRoller from './DiceRoller'
 import MapGrid from './MapGrid'
 import SectionTracker from './SectionTracker'
@@ -53,6 +53,51 @@ export default async function SessionPage({
       : new Date((v.visitedAt as number) * 1000).toISOString(),
   }))
 
+  // Fetch active combat for this session
+  const activeCombat = db
+    .select()
+    .from(combats)
+    .where(eq(combats.sessionId, sessionId))
+    .orderBy(desc(combats.startedAt))
+    .all()
+    .find((c) => c.outcome === 'in_progress') ?? null
+
+  let activeCombatWithRounds = null
+  if (activeCombat) {
+    const rounds = db
+      .select()
+      .from(combatRounds)
+      .where(eq(combatRounds.combatId, activeCombat.id))
+      .orderBy(asc(combatRounds.roundNumber))
+      .all()
+
+    const formatTs = (v: Date | number | null) => {
+      if (!v) return null
+      if (v instanceof Date) return v.toISOString()
+      return new Date((v as number) * 1000).toISOString()
+    }
+
+    activeCombatWithRounds = {
+      id: activeCombat.id,
+      sessionId: activeCombat.sessionId,
+      enemyName: activeCombat.enemyName,
+      enemyStats: activeCombat.enemyStats as Record<string, unknown>,
+      enemyState: activeCombat.enemyState as Record<string, unknown>,
+      metadata: activeCombat.metadata as Record<string, unknown>,
+      outcome: activeCombat.outcome,
+      startedAt: formatTs(activeCombat.startedAt)!,
+      endedAt: formatTs(activeCombat.endedAt),
+      rounds: rounds.map((r) => ({
+        id: r.id,
+        roundNumber: r.roundNumber,
+        detail: r.detail as Record<string, unknown>,
+        damageDealt: r.damageDealt,
+        damageTaken: r.damageTaken,
+        createdAt: formatTs(r.createdAt)!,
+      })),
+    }
+  }
+
   return (
     <main className="p-8">
       <div className="mb-6">
@@ -73,13 +118,15 @@ export default async function SessionPage({
         </div>
       )}
 
-      <CharacterSheet
+      <SessionClient
         sessionId={sessionId}
         stats={stats}
         initialStats={character.initialStats as Record<string, unknown>}
         statDefs={gameSystem.stats}
         gameSystemId={session.gameSystemId}
         isGameOver={isGameOver}
+        initialCombat={activeCombatWithRounds}
+        combatModule={gameSystem.combat ?? null}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
       <SectionTracker

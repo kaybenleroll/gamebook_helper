@@ -16,6 +16,7 @@ interface Props {
   statDefs: StatDefinition[]
   gameSystemId: string
   isGameOver?: boolean
+  onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
 }
 
 export default function CharacterSheet({
@@ -25,6 +26,7 @@ export default function CharacterSheet({
   statDefs,
   gameSystemId,
   isGameOver = false,
+  onStatsChange,
 }: Props) {
   const [currentStats, setCurrentStats] = useState(initialCurrentStats)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialStats)
@@ -54,6 +56,7 @@ export default function CharacterSheet({
       }
       setCurrentStats(data.stats)
       if (data.initialStats) setCurrentInitialStats(data.initialStats)
+      onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
     }
   }
 
@@ -66,8 +69,9 @@ export default function CharacterSheet({
       body: JSON.stringify({ equipment: slot, item: { name: name.trim(), value: numValue } }),
     })
     if (res.ok) {
-      const data = (await res.json()) as { stats: Record<string, unknown> }
+      const data = (await res.json()) as { stats: Record<string, unknown>; initialStats?: Record<string, unknown> }
       setCurrentStats(data.stats)
+      onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
     }
   }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rollDice } from '../../../../lib/dice'
 
 // Parses a dice formula in NdN or NdN+M / NdN-M format.
 // Returns null if the formula is invalid.
@@ -33,10 +34,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const { count, sides, modifier } = parsed
-    const rolls: number[] = []
-    for (let i = 0; i < count; i++) {
-      rolls.push(Math.floor(Math.random() * sides) + 1)
-    }
+    const rolls = rollDice(count, sides)
     const total = rolls.reduce((sum, r) => sum + r, 0) + modifier
 
     return NextResponse.json({ rolls, total })
