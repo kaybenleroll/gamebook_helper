@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import SvgCanvas from './map/SvgCanvas'
+import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
 
 interface MapEntry {
   id: number
@@ -13,6 +13,17 @@ interface MapEntry {
 
 interface Props {
   sessionId: number
+}
+
+const NODE_RADIUS = 18
+
+function deriveNodeBounds(nodes: MapNode[]): NodeBounds[] {
+  return nodes.map((n) => ({
+    x: n.x - NODE_RADIUS,
+    y: n.y - NODE_RADIUS,
+    width: NODE_RADIUS * 2,
+    height: NODE_RADIUS * 2,
+  }))
 }
 
 export default function MapGrid({ sessionId }: Props) {
@@ -29,6 +40,9 @@ export default function MapGrid({ sessionId }: Props) {
 
   // Delete confirmation state
   const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  // Node state for the active map
+  const [nodes, setNodes] = useState<MapNode[]>([])
 
   const activeMapId = searchParams.get('mapId') ? parseInt(searchParams.get('mapId')!, 10) : null
 
@@ -49,6 +63,24 @@ export default function MapGrid({ sessionId }: Props) {
   useEffect(() => {
     void fetchMaps()
   }, [fetchMaps])
+
+  useEffect(() => {
+    if (!activeMapId) {
+      setNodes([])
+      return
+    }
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/maps/${activeMapId}/nodes`)
+        if (!res.ok) return
+        const data = (await res.json()) as MapNode[]
+        setNodes(data)
+      } catch {
+        setNodes([])
+      }
+    })()
+  }, [activeMapId])
 
   function setActiveMap(mapId: number) {
     const params = new URLSearchParams(searchParams.toString())
@@ -259,8 +291,9 @@ export default function MapGrid({ sessionId }: Props) {
       ) : activeMapId ? (
         <div className="mt-4 border border-gray-200 rounded overflow-hidden" style={{ height: 520 }}>
           <SvgCanvas
+            nodes={nodes}
+            nodeBounds={deriveNodeBounds(nodes)}
             onBackgroundClick={(worldX, worldY) => {
-              // Placeholder — node placement wired in Slice 4b.
               console.debug('Canvas click at world', worldX.toFixed(1), worldY.toFixed(1))
             }}
           />
