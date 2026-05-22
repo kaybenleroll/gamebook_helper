@@ -54,6 +54,40 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  try {
+    const { id } = await params
+    const sessionId = parseInt(id, 10)
+    if (isNaN(sessionId)) {
+      return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
+    }
+
+    const body = await request.json() as { bookTitle?: unknown }
+    const { bookTitle } = body
+
+    if (!bookTitle || typeof bookTitle !== 'string' || bookTitle.trim() === '') {
+      return NextResponse.json({ error: 'bookTitle is required and must be a non-empty string' }, { status: 400 })
+    }
+
+    const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+
+    db.update(sessions)
+      .set({ bookTitle: bookTitle.trim(), updatedAt: new Date() })
+      .where(eq(sessions.id, sessionId))
+      .run()
+
+    return NextResponse.json({ id: sessionId, bookTitle: bookTitle.trim() })
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
