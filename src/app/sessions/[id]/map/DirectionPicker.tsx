@@ -1,10 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import type { Direction } from '../../../../lib/db/schema'
+
+export interface DirectionChoice {
+  direction: Direction | null
+  sectionNumber: number | null
+}
 
 interface DirectionPickerProps {
   hasParent: boolean
-  onSelect: (direction: Direction | null) => void
+  onSelect: (choice: DirectionChoice) => void
   onCancel: () => void
 }
 
@@ -13,10 +19,21 @@ export default function DirectionPicker({
   onSelect,
   onCancel,
 }: DirectionPickerProps) {
+  const [sectionInput, setSectionInput] = useState('')
+
   const btnBase =
     'px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium transition-colors'
   const btnSecondary =
     'px-3 py-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm rounded font-medium transition-colors'
+
+  function parsedSection(): number | null {
+    const n = parseInt(sectionInput, 10)
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  function handleSelect(direction: Direction | null) {
+    onSelect({ direction, sectionNumber: parsedSection() })
+  }
 
   return (
     /* Modal backdrop */
@@ -33,6 +50,21 @@ export default function DirectionPicker({
           Choose direction
         </h4>
 
+        {/* Section number input */}
+        <div className="w-full">
+          <label className="block text-xs font-medium text-gray-500 mb-1">
+            Section number (optional)
+          </label>
+          <input
+            type="number"
+            min={1}
+            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+            placeholder="e.g. 42"
+            value={sectionInput}
+            onChange={(e) => setSectionInput(e.target.value)}
+          />
+        </div>
+
         {/* Compass layout — 3 columns */}
         <div className="grid grid-cols-3 gap-2">
           {/* Row 1: empty, N, empty */}
@@ -40,7 +72,7 @@ export default function DirectionPicker({
           <button
             className={btnBase}
             aria-label="North"
-            onClick={() => onSelect('N')}
+            onClick={() => handleSelect('N')}
           >
             ↑ N
           </button>
@@ -50,7 +82,7 @@ export default function DirectionPicker({
           <button
             className={btnBase}
             aria-label="West"
-            onClick={() => onSelect('W')}
+            onClick={() => handleSelect('W')}
           >
             ← W
           </button>
@@ -58,14 +90,14 @@ export default function DirectionPicker({
             <button
               className={btnBase}
               aria-label="Up"
-              onClick={() => onSelect('up')}
+              onClick={() => handleSelect('up')}
             >
               ▲ up
             </button>
             <button
               className={btnBase}
               aria-label="Down"
-              onClick={() => onSelect('down')}
+              onClick={() => handleSelect('down')}
             >
               ▼ dn
             </button>
@@ -73,7 +105,7 @@ export default function DirectionPicker({
           <button
             className={btnBase}
             aria-label="East"
-            onClick={() => onSelect('E')}
+            onClick={() => handleSelect('E')}
           >
             E →
           </button>
@@ -83,7 +115,7 @@ export default function DirectionPicker({
           <button
             className={btnBase}
             aria-label="South"
-            onClick={() => onSelect('S')}
+            onClick={() => handleSelect('S')}
           >
             ↓ S
           </button>
@@ -95,7 +127,7 @@ export default function DirectionPicker({
           {hasParent && (
             <button
               className={btnSecondary}
-              onClick={() => onSelect(null)}
+              onClick={() => handleSelect(null)}
             >
               No connection
             </button>
