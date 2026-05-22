@@ -9,6 +9,7 @@ import { eq, asc, desc } from 'drizzle-orm'
 import SessionClient from './SessionClient'
 import DiceRoller from './DiceRoller'
 import MapGrid from './MapGrid'
+import Notes from './Notes'
 import SectionTracker from './SectionTracker'
 import InventoryPanel from './InventoryPanel'
 
@@ -173,6 +174,7 @@ export default async function SessionPage({
         gameSystemId={session.gameSystemId}
         initialItems={inventoryForClient}
       />
+      <Notes sessionId={sessionId} initialNotes={session.notes ?? null} />
       <MapGrid sessionId={sessionId} />
     </main>
   )
