@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import type { StatDefinition, CombatModule } from '../../../lib/game-systems/types'
+import type { CreationRolls } from '../../../lib/db/schema'
 import CharacterSheet from './CharacterSheet'
 import CombatPanel from './CombatPanel'
+import CreationRollsModal from './CreationRollsModal'
 
 interface CombatRound {
   id: number
@@ -39,6 +41,7 @@ interface Props {
   enemyStatFields: CombatModule['enemyStatFields'] | null
   primaryHealthStat: string
   primaryEnemyHealthStat: string
+  creationRolls: CreationRolls | null
 }
 
 /**
@@ -57,9 +60,11 @@ export default function SessionClient({
   enemyStatFields,
   primaryHealthStat,
   primaryEnemyHealthStat,
+  creationRolls: initialCreationRolls,
 }: Props) {
   const [stats, setStats] = useState(initialStatsProp)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
+  const [creationRolls, setCreationRolls] = useState<CreationRolls | null>(initialCreationRolls)
 
   function handleStatsChange(
     newStats: Record<string, unknown>,
@@ -71,6 +76,13 @@ export default function SessionClient({
 
   return (
     <>
+      {creationRolls && (
+        <CreationRollsModal
+          sessionId={sessionId}
+          creationRolls={creationRolls}
+          onDismiss={() => setCreationRolls(null)}
+        />
+      )}
       <CharacterSheet
         sessionId={sessionId}
         stats={stats}
