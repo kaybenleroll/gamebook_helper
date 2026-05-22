@@ -46,8 +46,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const sessionId = db.transaction((tx) => {
       const result = tx.insert(sessions).values({ gameSystemId, bookTitle }).returning({ id: sessions.id }).all()
       const session = result[0]
-      tx.insert(characters).values({ sessionId: session.id, stats: initialStats, initialStats })
-      tx.insert(maps).values({ sessionId: session.id, width: 20, height: 20 })
+      tx.insert(characters).values({ sessionId: session.id, stats: initialStats, initialStats }).run()
+      tx.insert(maps).values({ sessionId: session.id, width: 20, height: 20 }).run()
       return session.id
     })
 
