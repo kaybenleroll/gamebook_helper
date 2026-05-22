@@ -79,7 +79,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const result = tx.insert(sessions).values({ gameSystemId, bookTitle }).returning({ id: sessions.id }).all()
       const session = result[0]
       tx.insert(characters).values({ sessionId: session.id, stats: initialStats, initialStats, creationRolls }).run()
-      tx.insert(maps).values({ sessionId: session.id, width: 20, height: 20 }).run()
+      tx.insert(maps).values({ sessionId: session.id, name: 'Map 1' }).run()
       return session.id
     })
 

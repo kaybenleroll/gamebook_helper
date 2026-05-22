@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import '../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../lib/game-systems/registry'
 import { db } from '../../../../lib/db'
-import { sessions, characters, maps, mapCells, mapEdges, combats, combatRounds, sectionVisits } from '../../../../lib/db/schema'
+import { sessions, characters, maps, combats, combatRounds, sectionVisits } from '../../../../lib/db/schema'
 import { eq, inArray } from 'drizzle-orm'
 
 export async function GET(
@@ -127,16 +127,9 @@ export async function DELETE(
     }
 
     db.transaction((tx) => {
-      const sessionMaps = tx.select({ id: maps.id }).from(maps).where(eq(maps.sessionId, sessionId)).all()
       const sessionCombats = tx.select({ id: combats.id }).from(combats).where(eq(combats.sessionId, sessionId)).all()
 
-      const mapIds = sessionMaps.map((m) => m.id)
       const combatIds = sessionCombats.map((c) => c.id)
-
-      if (mapIds.length > 0) {
-        tx.delete(mapCells).where(inArray(mapCells.mapId, mapIds)).run()
-        tx.delete(mapEdges).where(inArray(mapEdges.mapId, mapIds)).run()
-      }
 
       if (combatIds.length > 0) {
         tx.delete(combatRounds).where(inArray(combatRounds.combatId, combatIds)).run()
@@ -144,6 +137,7 @@ export async function DELETE(
 
       tx.delete(sectionVisits).where(eq(sectionVisits.sessionId, sessionId)).run()
       tx.delete(combats).where(eq(combats.sessionId, sessionId)).run()
+      // maps/map_nodes/map_edges are cascade-deleted via FK on session_id
       tx.delete(maps).where(eq(maps.sessionId, sessionId)).run()
       tx.delete(characters).where(eq(characters.sessionId, sessionId)).run()
       tx.delete(sessions).where(eq(sessions.id, sessionId)).run()
