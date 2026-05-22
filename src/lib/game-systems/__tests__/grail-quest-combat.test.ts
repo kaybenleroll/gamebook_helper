@@ -3,18 +3,16 @@ import { grailQuestCombat } from '../grail-quest'
 
 // ---- Helpers ----
 
-function makeEnemyStats(overrides?: Partial<{
-  name: string; skill: number; stamina: number; damage: number; xp: number
-}>) {
-  return { name: 'Goblin', skill: 5, stamina: 8, damage: 2, ...overrides }
+function makeEnemyStats(overrides?: Partial<{ name: string; lifePoints: number; xp: number }>) {
+  return { name: 'Goblin', lifePoints: 8, ...overrides }
 }
 
-function makeEnemyState(currentStamina: number) {
-  return { currentStamina }
+function makeEnemyState(currentLifePoints: number) {
+  return { currentLifePoints }
 }
 
-function makeCharacterStats(overrides?: Partial<{ lifePoints: number; skill: number }>) {
-  return { lifePoints: 10, skill: 7, ...overrides }
+function makeCharacterStats(overrides?: Partial<{ lifePoints: number; experiencePoints: number }>) {
+  return { lifePoints: 10, experiencePoints: 0, ...overrides }
 }
 
 function resolveWith(
@@ -39,34 +37,74 @@ function resolveWith(
 
 // ---- Tests ----
 
-describe('validateEnemyStats', () => {
-  it('returns empty array for valid stats', () => {
-    expect(grailQuestCombat.validateEnemyStats({ name: 'Troll', skill: 8, stamina: 12 })).toEqual([])
+describe('enemyStatFields', () => {
+  it('has no skill field', () => {
+    const keys = grailQuestCombat.enemyStatFields.map((f) => f.key)
+    expect(keys).not.toContain('skill')
   })
 
-  it('requires name', () => {
-    const errs = grailQuestCombat.validateEnemyStats({ skill: 5, stamina: 6 })
-    expect(errs).toContain('name is required')
+  it('has lifePoints not stamina', () => {
+    const keys = grailQuestCombat.enemyStatFields.map((f) => f.key)
+    expect(keys).toContain('lifePoints')
+    expect(keys).not.toContain('stamina')
   })
 
-  it('requires skill ≥ 1', () => {
-    const errs = grailQuestCombat.validateEnemyStats({ name: 'X', skill: 0, stamina: 6 })
-    expect(errs.some(e => e.includes('skill'))).toBe(true)
+  it('has no damage field', () => {
+    const keys = grailQuestCombat.enemyStatFields.map((f) => f.key)
+    expect(keys).not.toContain('damage')
   })
 
-  it('requires stamina ≥ 1', () => {
-    const errs = grailQuestCombat.validateEnemyStats({ name: 'X', skill: 5, stamina: 0 })
-    expect(errs.some(e => e.includes('stamina'))).toBe(true)
-  })
-
-  it('rejects negative damage', () => {
-    const errs = grailQuestCombat.validateEnemyStats({ name: 'X', skill: 5, stamina: 6, damage: -1 })
-    expect(errs.some(e => e.includes('damage'))).toBe(true)
+  it('has name and xp fields', () => {
+    const keys = grailQuestCombat.enemyStatFields.map((f) => f.key)
+    expect(keys).toContain('name')
+    expect(keys).toContain('xp')
   })
 })
 
-describe('start — initiative', () => {
-  it('resolves initiative without a tie result', () => {
+describe('validateEnemyStats', () => {
+  it('returns empty array for valid stats', () => {
+    expect(grailQuestCombat.validateEnemyStats({ name: 'Troll', lifePoints: 12 })).toEqual([])
+  })
+
+  it('requires name', () => {
+    const errs = grailQuestCombat.validateEnemyStats({ lifePoints: 6 })
+    expect(errs).toContain('name is required')
+  })
+
+  it('rejects missing lifePoints', () => {
+    const errs = grailQuestCombat.validateEnemyStats({ name: 'X' })
+    expect(errs.some((e) => e.includes('lifePoints'))).toBe(true)
+  })
+
+  it('rejects lifePoints of 0', () => {
+    const errs = grailQuestCombat.validateEnemyStats({ name: 'X', lifePoints: 0 })
+    expect(errs.some((e) => e.includes('lifePoints'))).toBe(true)
+  })
+
+  it('rejects non-integer lifePoints', () => {
+    const errs = grailQuestCombat.validateEnemyStats({ name: 'X', lifePoints: 2.5 })
+    expect(errs.some((e) => e.includes('lifePoints'))).toBe(true)
+  })
+
+  it('accepts optional xp', () => {
+    expect(grailQuestCombat.validateEnemyStats({ name: 'X', lifePoints: 5, xp: 10 })).toEqual([])
+  })
+
+  it('rejects negative xp', () => {
+    const errs = grailQuestCombat.validateEnemyStats({ name: 'X', lifePoints: 5, xp: -1 })
+    expect(errs.some((e) => e.includes('xp'))).toBe(true)
+  })
+})
+
+describe('start', () => {
+  it('sets enemyState.currentLifePoints to enemyStats.lifePoints', () => {
+    const { enemyState } = grailQuestCombat.start(makeEnemyStats({ lifePoints: 14 })) as {
+      enemyState: Record<string, unknown>
+    }
+    expect(enemyState['currentLifePoints']).toBe(14)
+  })
+
+  it('resolves initiative without a tie result (2d6 each)', () => {
     const { metadata } = grailQuestCombat.start(makeEnemyStats()) as {
       enemyState: Record<string, unknown>
       metadata: Record<string, unknown>
@@ -77,13 +115,6 @@ describe('start — initiative', () => {
     expect(metadata['playerRoll']).not.toBe(metadata['enemyRoll'])
   })
 
-  it('sets enemyState.currentStamina to enemyStats.stamina', () => {
-    const { enemyState } = grailQuestCombat.start(makeEnemyStats({ stamina: 14 })) as {
-      enemyState: Record<string, unknown>
-    }
-    expect(enemyState['currentStamina']).toBe(14)
-  })
-
   it('stores enemyXp from input', () => {
     const { metadata } = grailQuestCombat.start(makeEnemyStats({ xp: 25 })) as {
       metadata: Record<string, unknown>
@@ -92,50 +123,147 @@ describe('start — initiative', () => {
   })
 })
 
-describe('resolveRound — attack hit and miss', () => {
-  it('player hit: damageDealt > 0 when dice guaranteed to hit', () => {
-    // Force dice to return high values by mocking Math.random
-    vi.spyOn(Math, 'random').mockReturnValue(0.99) // always rolls max face
+describe('resolveRound — basic hit / miss mechanics', () => {
+  it('roll ≥ 7 is a hit, damage = roll − 6', () => {
+    // Force 2d6 to return [4, 3] = 7 → hit, damage 1
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((3 - 1) / 6)  // first die: 3
+      .mockReturnValueOnce((4 - 1) / 6)  // second die: 4 → sum 7
+      .mockReturnValueOnce(0)             // enemy dice (misses)
+      .mockReturnValueOnce(0)
     try {
       const result = resolveWith()
-      // With very high rolls both sides should hit
-      expect(result.damageDealt).toBeGreaterThanOrEqual(0)
+      expect(result.damageDealt).toBe(1) // 7 − 6 = 1
     } finally {
       vi.restoreAllMocks()
     }
   })
 
-  it('player miss: damageDealt = 0 when dice force a miss', () => {
-    // rollDice(2,6) min value = 2; player skill 7; total 9 — this always hits threshold 7
-    // To force a miss, set player skill very low and return minimum dice
-    vi.spyOn(Math, 'random').mockReturnValue(0) // always rolls 1
+  it('roll exactly 7 → 1 damage', () => {
+    // [3+4]=7 → damage 1
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((3 - 1) / 6)
+      .mockReturnValueOnce((4 - 1) / 6)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
     try {
-      const result = resolveWith({
-        characterStats: makeCharacterStats({ skill: 0, lifePoints: 10 }),
-      })
-      // 2d6 min (2) + skill 0 = 2, threshold 7 → miss
+      const result = resolveWith()
+      expect(result.damageDealt).toBe(1)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('roll 12 (max) → 6 damage', () => {
+    // [6+6]=12 → damage 6
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // always max face
+    try {
+      const result = resolveWith()
+      // Player hits with 12, damage = 12 − 6 = 6
+      expect(result.damageDealt).toBe(6)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('roll ≤ 6 → miss, 0 damage', () => {
+    // [1+1]=2 → miss
+    vi.spyOn(Math, 'random').mockReturnValue(0) // always min face (1)
+    try {
+      const result = resolveWith()
+      expect(result.damageDealt).toBe(0)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+})
+
+describe('resolveRound — risky attack (nose bop)', () => {
+  it('uses threshold 9 for risky attack', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    try {
+      const risky = resolveWith({ chosenOptions: { riskyAttack: true } })
+      const detail = risky.detail as Record<string, unknown>
+      expect(detail['playerThreshold']).toBe(9)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('uses threshold 7 for normal attack', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    try {
+      const normal = resolveWith({ chosenOptions: { riskyAttack: false } })
+      const detail = normal.detail as Record<string, unknown>
+      expect(detail['playerThreshold']).toBe(7)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('roll 10 risky attack → damage (10−6)×2 = 8', () => {
+    // Force player dice [5+5]=10, enemy dice miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((5 - 1) / 6)  // player die 1: 5
+      .mockReturnValueOnce((5 - 1) / 6)  // player die 2: 5 → sum 10
+      .mockReturnValueOnce(0)             // enemy miss
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith({ chosenOptions: { riskyAttack: true } })
+      expect(result.damageDealt).toBe(8) // (10−6)×2
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('roll 8 risky attack → miss (8 < 9)', () => {
+    // Force player dice [4+4]=8, enemy dice miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((4 - 1) / 6)
+      .mockReturnValueOnce((4 - 1) / 6)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith({ chosenOptions: { riskyAttack: true } })
       expect(result.damageDealt).toBe(0)
     } finally {
       vi.restoreAllMocks()
     }
   })
 
-  it('enemy hit: damageTaken > 0 when dice force enemy hit', () => {
+  it('risky hit deals double damage compared to normal hit on same roll', () => {
+    // Both roll 12 (max) — risky should be double
     vi.spyOn(Math, 'random').mockReturnValue(0.99)
     try {
-      const result = resolveWith({ enemyStats: makeEnemyStats({ skill: 10, damage: 3 }) })
-      // High enemy skill + max dice → enemy hits
-      expect(result.damageTaken).toBeGreaterThanOrEqual(0)
+      const normal = resolveWith({ chosenOptions: { riskyAttack: false } })
+      const risky = resolveWith({ chosenOptions: { riskyAttack: true } })
+      expect(risky.damageDealt).toBe(normal.damageDealt * 2)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+})
+
+describe('resolveRound — enemy attack', () => {
+  it('enemy roll ≥ 7 hits player, damage = enemyRoll − 6', () => {
+    // Force enemy dice [6+6]=12 → damage 6; player dice miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)    // player die 1: 1
+      .mockReturnValueOnce(0)    // player die 2: 1 → miss
+      .mockReturnValueOnce(0.99) // enemy die 1: 6
+      .mockReturnValueOnce(0.99) // enemy die 2: 6 → sum 12, damage 6
+    try {
+      const result = resolveWith()
+      expect(result.damageTaken).toBe(6)
     } finally {
       vi.restoreAllMocks()
     }
   })
 
-  it('enemy miss: damageTaken = 0 when dice force miss', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0) // always 1
+  it('enemy roll ≤ 6 → miss, 0 damage to player', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0) // all dice roll 1 → sum 2 < 7
     try {
-      const result = resolveWith({ enemyStats: makeEnemyStats({ skill: 0 }) })
-      // 2 + 0 = 2 < 7 → miss
+      const result = resolveWith()
       expect(result.damageTaken).toBe(0)
     } finally {
       vi.restoreAllMocks()
@@ -143,44 +271,13 @@ describe('resolveRound — attack hit and miss', () => {
   })
 })
 
-describe('resolveRound — risky attack', () => {
-  it('uses threshold 8 for player attack when risky', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.99) // max dice
-    try {
-      const normal = resolveWith({ chosenOptions: { riskyAttack: false } })
-      const risky = resolveWith({ chosenOptions: { riskyAttack: true } })
-      const normalDetail = normal.detail as Record<string, unknown>
-      const riskyDetail = risky.detail as Record<string, unknown>
-      const normalAttack = normalDetail['playerAttack'] as Record<string, unknown>
-      const riskyAttack = riskyDetail['playerAttack'] as Record<string, unknown>
-      expect(normalAttack['threshold']).toBe(7)
-      expect(riskyAttack['threshold']).toBe(8)
-    } finally {
-      vi.restoreAllMocks()
-    }
-  })
-
-  it('deals double damage on risky hit', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.99) // max dice, both hit
-    try {
-      const normal = resolveWith({ chosenOptions: { riskyAttack: false } })
-      const risky = resolveWith({ chosenOptions: { riskyAttack: true } })
-      if (normal.damageDealt > 0 && risky.damageDealt > 0) {
-        expect(risky.damageDealt).toBe(normal.damageDealt * 2)
-      }
-    } finally {
-      vi.restoreAllMocks()
-    }
-  })
-})
-
 describe('resolveRound — win/lose conditions', () => {
-  it('returns player_won when enemy stamina reaches 0', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.99) // force player hit
+  it('returns player_won when enemy currentLifePoints reaches 0', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // force high rolls
     try {
       const result = resolveWith({
-        enemyState: makeEnemyState(1), // 1 stamina left
-        characterStats: makeCharacterStats({ skill: 20, lifePoints: 20 }),
+        enemyState: makeEnemyState(1),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
       })
       if (result.damageDealt >= 1) {
         expect(result.outcome).toBe('player_won')
@@ -190,31 +287,34 @@ describe('resolveRound — win/lose conditions', () => {
     }
   })
 
-  it('returns player_lost when player LP would reach 0', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.99) // force enemy hit
+  it('returns player_lost when player lifePoints would reach 0', () => {
+    // Force player to miss, enemy to deal fatal damage
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)    // player die 1: 1
+      .mockReturnValueOnce(0)    // player die 2: 1 → miss
+      .mockReturnValueOnce(0.99) // enemy die 1: 6
+      .mockReturnValueOnce(0.99) // enemy die 2: 6 → sum 12, damage 6
     try {
       const result = resolveWith({
-        enemyStats: makeEnemyStats({ skill: 20, damage: 5 }),
         enemyState: makeEnemyState(100),
-        characterStats: makeCharacterStats({ skill: 0, lifePoints: 1 }),
+        characterStats: makeCharacterStats({ lifePoints: 1 }),
       })
-      if (result.damageTaken >= 1) {
-        expect(result.outcome).toBe('player_lost')
-      }
+      expect(result.damageTaken).toBe(6)
+      expect(result.outcome).toBe('player_lost')
     } finally {
       vi.restoreAllMocks()
     }
   })
 
   it('returns null when combat continues', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0) // force all misses
+    vi.spyOn(Math, 'random').mockReturnValue(0) // all dice 1 → all misses
     try {
       const result = resolveWith({
-        enemyStats: makeEnemyStats({ skill: 0 }),
         enemyState: makeEnemyState(20),
-        characterStats: makeCharacterStats({ skill: 0, lifePoints: 20 }),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
       })
-      // Both miss → no damage → no outcome change
+      expect(result.damageDealt).toBe(0)
+      expect(result.damageTaken).toBe(0)
       expect(result.outcome).toBeNull()
     } finally {
       vi.restoreAllMocks()
@@ -223,31 +323,31 @@ describe('resolveRound — win/lose conditions', () => {
 })
 
 describe('resolveRound — combat modifiers', () => {
-  it('applies +2 attackBonus to player attack roll', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
+  it('applies playerThreshold override', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0) // dice always 1 → sum 2
     try {
-      const withBonus = resolveWith({
-        characterStats: makeCharacterStats({ skill: 0, lifePoints: 10 }),
-        combatModifiers: { attackBonus: 10 }, // 2 + 0 + 10 = 12 ≥ 7 → hit
+      const normal = resolveWith()
+      // 2 < 7 → miss
+      expect(normal.damageDealt).toBe(0)
+
+      // Override threshold to 2 → hit with roll 2, damage = 2 − 6 clamped to 0 … actually 0
+      // Use threshold 1 so roll 2 > 1 and damage = max(0, 2-6) = 0 — test hit flag instead
+      const overrideThreshold = resolveWith({
+        combatModifiers: { playerThreshold: 2 }, // roll 2 ≥ 2 → hit, damage max(0, 2−6)=0
       })
-      expect(withBonus.damageDealt).toBeGreaterThan(0)
+      const detail = overrideThreshold.detail as Record<string, unknown>
+      expect(detail['playerHit']).toBe(true)
     } finally {
       vi.restoreAllMocks()
     }
   })
 
-  it('applies playerThreshold override', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
+  it('applies damageBonus on top of base damage', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // max dice → roll 12, base damage 6
     try {
-      const normal = resolveWith({ characterStats: makeCharacterStats({ skill: 0 }) })
-      // 2 + 0 = 2 < 7 → miss
-      expect(normal.damageDealt).toBe(0)
-
-      const overrideThreshold = resolveWith({
-        characterStats: makeCharacterStats({ skill: 0 }),
-        combatModifiers: { playerThreshold: 2 }, // threshold 2, roll 2 → hit
-      })
-      expect(overrideThreshold.damageDealt).toBeGreaterThan(0)
+      const normal = resolveWith()
+      const withBonus = resolveWith({ combatModifiers: { damageBonus: 3 } })
+      expect(withBonus.damageDealt).toBe(normal.damageDealt + 3)
     } finally {
       vi.restoreAllMocks()
     }
@@ -255,7 +355,7 @@ describe('resolveRound — combat modifiers', () => {
 })
 
 describe('roundOptions', () => {
-  it('always includes riskyAttack option', () => {
+  it('always includes riskyAttack option with correct properties', () => {
     const opts = grailQuestCombat.roundOptions({
       enemyStats: makeEnemyStats(),
       enemyState: makeEnemyState(8),
@@ -271,19 +371,22 @@ describe('roundOptions', () => {
 
 describe('initiative tie re-roll', () => {
   it('resolves without infinite loop even when first rolls tie', () => {
+    // Attempt 1: player 2d6 = [4,4]=8, enemy 2d6 = [4,4]=8 → tie
+    // Attempt 2: player 2d6 = [1,1]=2, enemy 2d6 = [6,6]=12 → different → winner is enemy
+    // Mock sequence: 4 values of 0.5 (floor(0.5*6)+1=4), then 2 values of 0 (→1) and 2 values of 0.99 (→6)
+    const sequence = [0.5, 0.5, 0.5, 0.5, 0, 0, 0.99, 0.99]
     let callCount = 0
     vi.spyOn(Math, 'random').mockImplementation(() => {
-      // First 4 calls (2 dice × 2 sides) produce same value → tie
-      // After 4 calls, return different values
+      const value = sequence[callCount] ?? 0.5
       callCount++
-      if (callCount <= 4) return 0.5 // yields same roll
-      return callCount % 2 === 0 ? 0.1 : 0.9 // different rolls
+      return value
     })
     try {
       const { metadata } = grailQuestCombat.start(makeEnemyStats()) as {
         metadata: Record<string, unknown>
       }
       expect(['player', 'enemy']).toContain(metadata['initiativeWinner'])
+      expect(metadata['playerRoll']).not.toBe(metadata['enemyRoll'])
     } finally {
       vi.restoreAllMocks()
     }

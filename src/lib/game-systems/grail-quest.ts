@@ -64,18 +64,16 @@ export function applyXpThreshold(
 
 interface GqEnemyStats {
   name: string
-  skill: number
-  stamina: number
-  damage: number
+  lifePoints: number
   xp?: number
 }
 
 interface GqEnemyState {
-  currentStamina: number
+  currentLifePoints: number
 }
 
 interface GqMetadata {
-  initiativeWinner: 'player' | 'enemy' | 'tied'
+  initiativeWinner: 'player' | 'enemy'
   playerRoll: number
   enemyRoll: number
   combatModifiers: Record<string, unknown>
@@ -87,9 +85,7 @@ interface GqMetadata {
 export const grailQuestCombat: CombatModule = {
   enemyStatFields: [
     { key: 'name', label: 'Name', type: 'text', required: true },
-    { key: 'skill', label: 'Skill', type: 'number', required: true },
-    { key: 'stamina', label: 'Stamina', type: 'number', required: true },
-    { key: 'damage', label: 'Damage', type: 'number', required: false },
+    { key: 'lifePoints', label: 'Life Points', type: 'number', required: true },
     { key: 'xp', label: 'XP reward', type: 'number', required: false },
   ],
 
@@ -102,14 +98,8 @@ export const grailQuestCombat: CombatModule = {
     if (!s.name || typeof s.name !== 'string' || !s.name.trim()) {
       errors.push('name is required')
     }
-    if (typeof s.skill !== 'number' || s.skill < 1) {
-      errors.push('skill must be a positive number')
-    }
-    if (typeof s.stamina !== 'number' || s.stamina < 1) {
-      errors.push('stamina must be a positive number')
-    }
-    if (s.damage !== undefined && (typeof s.damage !== 'number' || s.damage < 0)) {
-      errors.push('damage must be a non-negative number')
+    if (typeof s.lifePoints !== 'number' || !Number.isInteger(s.lifePoints) || s.lifePoints < 1) {
+      errors.push('lifePoints must be a positive integer')
     }
     if (s.xp !== undefined && (typeof s.xp !== 'number' || s.xp < 0)) {
       errors.push('xp must be a non-negative number')
@@ -119,20 +109,19 @@ export const grailQuestCombat: CombatModule = {
 
   start(input: unknown): { enemyState: unknown; metadata: unknown } {
     const s = input as GqEnemyStats
-    const skill = typeof s.skill === 'number' ? s.skill : 0
-    const stamina = typeof s.stamina === 'number' ? s.stamina : 0
+    const lifePoints = typeof s.lifePoints === 'number' ? s.lifePoints : 0
 
-    // Roll initiative — keep re-rolling on ties
+    // Roll initiative — 2d6 each, re-roll on ties
     let playerRoll: number
     let enemyRoll: number
     do {
-      playerRoll = rollDice(1, 6)[0] + skill
-      enemyRoll = rollDice(1, 6)[0] + skill
+      playerRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
+      enemyRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
     } while (playerRoll === enemyRoll)
 
     const initiativeWinner: 'player' | 'enemy' = playerRoll > enemyRoll ? 'player' : 'enemy'
 
-    const enemyState: GqEnemyState = { currentStamina: stamina }
+    const enemyState: GqEnemyState = { currentLifePoints: lifePoints }
     const metadata: GqMetadata = {
       initiativeWinner,
       playerRoll,
@@ -148,8 +137,8 @@ export const grailQuestCombat: CombatModule = {
     return [
       {
         key: 'riskyAttack',
-        label: 'Risky Attack',
-        description: 'Target threshold 8 instead of 7, but deal double damage on hit.',
+        label: 'Risky Attack (nose bop)',
+        description: 'Target 9 instead of 7 — double damage on hit.',
         type: 'boolean',
         default: false,
       },
@@ -171,22 +160,16 @@ export const grailQuestCombat: CombatModule = {
     damageTaken: number
     outcome: CombatOutcome | null
   } {
-    const enemyStats = args.enemyStats as GqEnemyStats
     const enemyState = args.enemyState as GqEnemyState
     const characterStats = args.characterStats as Record<string, unknown>
     const mods = args.combatModifiers as Record<string, unknown>
 
-    const playerSkill =
-      typeof characterStats['skill'] === 'number' ? (characterStats['skill'] as number) : 0
-    const playerCurrentStamina =
+    const currentLifePoints =
+      typeof enemyState.currentLifePoints === 'number' ? enemyState.currentLifePoints : 0
+    const playerCurrentLp =
       typeof characterStats['lifePoints'] === 'number' ? (characterStats['lifePoints'] as number) : 0
 
-    const enemySkill = typeof enemyStats.skill === 'number' ? enemyStats.skill : 0
-    const enemyDamage = typeof enemyStats.damage === 'number' ? enemyStats.damage : 2
-
     // Modifiers
-    const attackBonus =
-      typeof mods['attackBonus'] === 'number' ? (mods['attackBonus'] as number) : 0
     const damageBonus =
       typeof mods['damageBonus'] === 'number' ? (mods['damageBonus'] as number) : 0
     const playerThresholdOverride =
@@ -194,63 +177,58 @@ export const grailQuestCombat: CombatModule = {
 
     const riskyAttack = args.chosenOptions['riskyAttack'] === true
 
-    // Player attack
-    const playerAttackDice = rollDice(2, 6)
-    const playerAttackRoll = playerAttackDice.reduce((s, r) => s + r, 0) + playerSkill + attackBonus
-    const playerThreshold = playerThresholdOverride ?? (riskyAttack ? 8 : 7)
-    const playerHit = playerAttackRoll >= playerThreshold
-    const baseDamageDealt = 2 // GQ default player damage (unarmed or armed baseline)
+    // Player attack — roll 2d6; hit if ≥ threshold; damage = roll − 6
+    const playerDice = rollDice(2, 6)
+    const playerRoll = playerDice.reduce((s, r) => s + r, 0)
+    const playerThreshold = playerThresholdOverride ?? (riskyAttack ? 9 : 7)
+    const playerHit = playerRoll >= playerThreshold
+    const basePlayerDamage = playerHit ? Math.max(0, playerRoll - 6) : 0
     let damageDealt = 0
     if (playerHit) {
-      const raw = baseDamageDealt + damageBonus
+      const raw = basePlayerDamage + damageBonus
       damageDealt = riskyAttack ? raw * 2 : raw
     }
 
-    // Enemy attack
-    const enemyAttackDice = rollDice(2, 6)
-    const enemyAttackRoll = enemyAttackDice.reduce((s, r) => s + r, 0) + enemySkill
+    // Enemy attack — roll 2d6; hit if ≥ 7; damage = roll − 6
+    const enemyDice = rollDice(2, 6)
+    const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
     const enemyThreshold = 7
-    const enemyHit = enemyAttackRoll >= enemyThreshold
-    const damageTaken = enemyHit ? enemyDamage : 0
+    const enemyHit = enemyRoll >= enemyThreshold
+    const damageTaken = enemyHit ? Math.max(0, enemyRoll - 6) : 0
 
     // Update enemy state
-    const newEnemyStamina = Math.max(0, enemyState.currentStamina - damageDealt)
-    const newEnemyState: GqEnemyState = { currentStamina: newEnemyStamina }
+    const newCurrentLifePoints = Math.max(0, currentLifePoints - damageDealt)
+    const newEnemyState: GqEnemyState = { currentLifePoints: newCurrentLifePoints }
 
     // Determine outcome
     let outcome: CombatOutcome | null = null
-    if (newEnemyStamina <= 0) {
+    if (newCurrentLifePoints <= 0) {
       outcome = 'player_won'
-    } else if (playerCurrentStamina - damageTaken <= 0) {
+    } else if (playerCurrentLp - damageTaken <= 0) {
       outcome = 'player_lost'
     }
 
     // Build detail narrative
     const detail = {
-      playerAttack: {
-        dice: playerAttackDice,
-        roll: playerAttackRoll,
-        threshold: playerThreshold,
-        hit: playerHit,
-        damageDealt,
-        riskyAttack,
-      },
-      enemyAttack: {
-        dice: enemyAttackDice,
-        roll: enemyAttackRoll,
-        threshold: enemyThreshold,
-        hit: enemyHit,
-        damageTaken,
-      },
+      playerDice,
+      playerRoll,
+      playerThreshold,
+      playerHit,
+      damageDealt,
+      enemyDice,
+      enemyRoll,
+      enemyThreshold,
+      enemyHit,
+      damageTaken,
       narrative: buildNarrative({
-        playerAttackDice,
-        playerAttackRoll,
+        playerDice,
+        playerRoll,
         playerThreshold,
         playerHit,
         damageDealt,
         riskyAttack,
-        enemyAttackDice,
-        enemyAttackRoll,
+        enemyDice,
+        enemyRoll,
         enemyThreshold,
         enemyHit,
         damageTaken,
@@ -269,25 +247,25 @@ export const grailQuestCombat: CombatModule = {
 }
 
 function buildNarrative(info: {
-  playerAttackDice: number[]
-  playerAttackRoll: number
+  playerDice: number[]
+  playerRoll: number
   playerThreshold: number
   playerHit: boolean
   damageDealt: number
   riskyAttack: boolean
-  enemyAttackDice: number[]
-  enemyAttackRoll: number
+  enemyDice: number[]
+  enemyRoll: number
   enemyThreshold: number
   enemyHit: boolean
   damageTaken: number
 }): string {
   const diceStr = (dice: number[]) => `[${dice.join('+')}]=${dice.reduce((s, r) => s + r, 0)}`
   const playerPart = info.playerHit
-    ? `Your attack ${diceStr(info.playerAttackDice)}+skill=${info.playerAttackRoll} (≥${info.playerThreshold} hit${info.riskyAttack ? ', risky' : ''}), dealt ${info.damageDealt} damage.`
-    : `Your attack ${diceStr(info.playerAttackDice)}+skill=${info.playerAttackRoll} (≥${info.playerThreshold} needed, miss).`
+    ? `Your attack ${diceStr(info.playerDice)} (≥${info.playerThreshold}, hit${info.riskyAttack ? ', risky' : ''}), dealt ${info.damageDealt} damage.`
+    : `Your attack ${diceStr(info.playerDice)} (≥${info.playerThreshold} needed, miss).`
   const enemyPart = info.enemyHit
-    ? `Enemy ${diceStr(info.enemyAttackDice)}+skill=${info.enemyAttackRoll} (≥${info.enemyThreshold} hit), dealt ${info.damageTaken} damage.`
-    : `Enemy ${diceStr(info.enemyAttackDice)}+skill=${info.enemyAttackRoll} (≥${info.enemyThreshold} needed, miss).`
+    ? `Enemy ${diceStr(info.enemyDice)} (≥${info.enemyThreshold}, hit), dealt ${info.damageTaken} damage.`
+    : `Enemy ${diceStr(info.enemyDice)} (≥${info.enemyThreshold} needed, miss).`
   return `${playerPart} ${enemyPart}`
 }
 
