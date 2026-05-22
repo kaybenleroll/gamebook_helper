@@ -15,6 +15,7 @@ interface Props {
   initialStats: Record<string, unknown>
   statDefs: StatDefinition[]
   gameSystemId: string
+  primaryHealthStat: string
   isGameOver?: boolean
   onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
 }
@@ -25,6 +26,7 @@ export default function CharacterSheet({
   initialStats,
   statDefs,
   gameSystemId,
+  primaryHealthStat,
   isGameOver = false,
   onStatsChange,
 }: Props) {
@@ -32,6 +34,7 @@ export default function CharacterSheet({
   const [currentInitialStats, setCurrentInitialStats] = useState(initialStats)
   const [statInputs, setStatInputs] = useState<Record<string, string>>({})
   const [initialStatInputs, setInitialStatInputs] = useState<Record<string, string>>({})
+  const [showGameOverModal, setShowGameOverModal] = useState(false)
 
   // Weapon form state
   const equippedWeapon = currentStats['weapon'] as EquipmentItem | undefined
@@ -46,6 +49,7 @@ export default function CharacterSheet({
   )
 
   async function patchCharacter(payload: Record<string, unknown>) {
+    const wasGameOver = ((currentStats[primaryHealthStat] as number | undefined) ?? 1) <= 0
     const res = await fetch(`/api/sessions/${sessionId}/character`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -59,6 +63,8 @@ export default function CharacterSheet({
       setCurrentStats(data.stats)
       if (data.initialStats) setCurrentInitialStats(data.initialStats)
       onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
+      const nowGameOver = ((data.stats[primaryHealthStat] as number | undefined) ?? 1) <= 0
+      if (!wasGameOver && nowGameOver) setShowGameOverModal(true)
     }
   }
 
@@ -275,6 +281,22 @@ export default function CharacterSheet({
               className="px-3 py-1 text-sm border rounded disabled:opacity-40"
             >
               Save
+            </button>
+          </div>
+        </div>
+      )}
+      {showGameOverModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+            <h2 className="text-xl font-bold text-red-700 mb-3">Game Over</h2>
+            <p className="text-gray-700 mb-6">
+              Your Life Points have reached zero — your adventure is over.
+            </p>
+            <button
+              onClick={() => setShowGameOverModal(false)}
+              className="px-6 py-2 bg-red-700 text-white rounded font-semibold hover:bg-red-800"
+            >
+              OK
             </button>
           </div>
         </div>
