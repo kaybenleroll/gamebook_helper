@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import Link from 'next/link'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
@@ -175,7 +176,9 @@ export default async function SessionPage({
         initialItems={inventoryForClient}
       />
       <Notes sessionId={sessionId} initialNotes={session.notes ?? null} />
-      <MapGrid sessionId={sessionId} />
+      <Suspense fallback={<div className="mt-6 p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
+        <MapGrid sessionId={sessionId} />
+      </Suspense>
     </main>
   )
 }
