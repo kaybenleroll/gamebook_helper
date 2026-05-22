@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 export const sessions = sqliteTable('sessions', {
@@ -78,7 +78,7 @@ export const mapCells = sqliteTable(
   },
   (t) => [
     index('map_cells_map_id_idx').on(t.mapId),
-    index('map_cells_position_idx').on(t.mapId, t.x, t.y),
+    uniqueIndex('map_cells_position_idx').on(t.mapId, t.x, t.y),
   ],
 )
 
@@ -105,5 +105,8 @@ export const mapEdges = sqliteTable(
     y2: integer('y2').notNull(),
     passageType: text('passage_type', { enum: passageTypeEnum }).notNull(),
   },
-  (t) => [index('map_edges_map_id_idx').on(t.mapId)],
+  (t) => [
+    index('map_edges_map_id_idx').on(t.mapId),
+    uniqueIndex('map_edges_position_idx').on(t.mapId, t.x1, t.y1, t.x2, t.y2),
+  ],
 )
