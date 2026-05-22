@@ -57,3 +57,4 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
   - Any grep/find/rg/fd/search → Explore subagent
   - Bash commands expected to return >20 lines → subagent, return only relevant output
 - Use the `git-workflow` skill before any GitHub operation (issue creation, branching, PRs, merges)
+- For new feature development, use `/new-feature` — it sequences grill-me, write-a-prd, stress-test, prd-to-issues, and git-workflow with the correct models at each step
