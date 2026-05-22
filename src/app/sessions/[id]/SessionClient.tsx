@@ -37,6 +37,8 @@ interface Props {
   isGameOver: boolean
   initialCombat: CombatData | null
   enemyStatFields: CombatModule['enemyStatFields'] | null
+  primaryHealthStat: string
+  primaryEnemyHealthStat: string
 }
 
 /**
@@ -53,6 +55,8 @@ export default function SessionClient({
   isGameOver,
   initialCombat,
   enemyStatFields,
+  primaryHealthStat,
+  primaryEnemyHealthStat,
 }: Props) {
   const [stats, setStats] = useState(initialStatsProp)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
@@ -85,6 +89,8 @@ export default function SessionClient({
           initialStats={currentInitialStats}
           isGameOver={isGameOver}
           onStatsChange={handleStatsChange}
+          primaryHealthStat={primaryHealthStat}
+          primaryEnemyHealthStat={primaryEnemyHealthStat}
         />
       )}
     </>

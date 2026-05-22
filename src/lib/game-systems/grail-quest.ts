@@ -91,6 +91,7 @@ export const grailQuestCombat: CombatModule = {
     { key: 'enemyThreshold', label: 'Enemy hit threshold', type: 'number', required: false },
     { key: 'playerThreshold', label: 'Your hit threshold', type: 'number', required: false },
   ],
+  primaryEnemyHealthStat: 'lifePoints',
 
   validateEnemyStats(input: unknown): string[] {
     const errors: string[] = []

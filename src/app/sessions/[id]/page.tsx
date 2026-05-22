@@ -138,6 +138,8 @@ export default async function SessionPage({
         isGameOver={isGameOver}
         initialCombat={activeCombatWithRounds}
         enemyStatFields={gameSystem.combat?.enemyStatFields ?? null}
+        primaryHealthStat={gameSystem.primaryHealthStat}
+        primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
       <SectionTracker

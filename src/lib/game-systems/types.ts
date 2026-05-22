@@ -34,6 +34,7 @@ export type CombatState = {
 
 export type CombatModule = {
   enemyStatFields: Array<{ key: string; label: string; type: 'number' | 'text'; required: boolean }>
+  primaryEnemyHealthStat: string
   validateEnemyStats(input: unknown): string[]
   start(input: unknown): { enemyState: unknown; metadata: unknown }
   roundOptions(state: CombatState): RoundOption[]
