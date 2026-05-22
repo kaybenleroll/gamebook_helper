@@ -78,6 +78,7 @@ interface GqMetadata {
   enemyRoll: number
   combatModifiers: Record<string, unknown>
   enemyXp: number
+  playerThreshold: number
 }
 
 // ---- GQ combat module ----
@@ -87,6 +88,8 @@ export const grailQuestCombat: CombatModule = {
     { key: 'name', label: 'Name', type: 'text', required: true },
     { key: 'lifePoints', label: 'Life Points', type: 'number', required: true },
     { key: 'xp', label: 'XP reward', type: 'number', required: false },
+    { key: 'enemyThreshold', label: 'Enemy hit threshold', type: 'number', required: false },
+    { key: 'playerThreshold', label: 'Your hit threshold', type: 'number', required: false },
   ],
 
   validateEnemyStats(input: unknown): string[] {
@@ -128,6 +131,7 @@ export const grailQuestCombat: CombatModule = {
       enemyRoll,
       combatModifiers: {},
       enemyXp: typeof s.xp === 'number' ? s.xp : 0,
+      playerThreshold: (input as any).playerThreshold ?? 7,
     }
 
     return { enemyState, metadata }
@@ -138,7 +142,7 @@ export const grailQuestCombat: CombatModule = {
       {
         key: 'riskyAttack',
         label: 'Risky Attack (nose bop)',
-        description: 'Target 9 instead of 7 — double damage on hit.',
+        description: 'Raises your hit threshold by 2 — double damage on hit.',
         type: 'boolean',
         default: false,
       },
@@ -175,12 +179,17 @@ export const grailQuestCombat: CombatModule = {
     const playerThresholdOverride =
       typeof mods['playerThreshold'] === 'number' ? (mods['playerThreshold'] as number) : null
 
+    const metadataRecord = args.metadata as GqMetadata
+    const metadataPlayerThreshold =
+      typeof metadataRecord?.playerThreshold === 'number' ? metadataRecord.playerThreshold : 7
+
     const riskyAttack = args.chosenOptions['riskyAttack'] === true
 
     // Player attack — roll 2d6; hit if ≥ threshold; damage = roll − 6
     const playerDice = rollDice(2, 6)
     const playerRoll = playerDice.reduce((s, r) => s + r, 0)
-    const playerThreshold = playerThresholdOverride ?? (riskyAttack ? 9 : 7)
+    const basePlayerThreshold = playerThresholdOverride ?? metadataPlayerThreshold
+    const playerThreshold = riskyAttack ? basePlayerThreshold + 2 : basePlayerThreshold
     const playerHit = playerRoll >= playerThreshold
     const basePlayerDamage = playerHit ? Math.max(0, playerRoll - 6) : 0
     let damageDealt = 0
@@ -189,10 +198,13 @@ export const grailQuestCombat: CombatModule = {
       damageDealt = riskyAttack ? raw * 2 : raw
     }
 
-    // Enemy attack — roll 2d6; hit if ≥ 7; damage = roll − 6
+    // Enemy attack — roll 2d6; hit if ≥ enemyThreshold (default 7); damage = roll − 6
     const enemyDice = rollDice(2, 6)
     const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
-    const enemyThreshold = 7
+    const enemyThreshold =
+      typeof (args.enemyStats as any)?.enemyThreshold === 'number'
+        ? (args.enemyStats as any).enemyThreshold as number
+        : 7
     const enemyHit = enemyRoll >= enemyThreshold
     const damageTaken = enemyHit ? Math.max(0, enemyRoll - 6) : 0
 

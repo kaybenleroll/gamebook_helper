@@ -3,7 +3,7 @@ import { grailQuestCombat } from '../grail-quest'
 
 // ---- Helpers ----
 
-function makeEnemyStats(overrides?: Partial<{ name: string; lifePoints: number; xp: number }>) {
+function makeEnemyStats(overrides?: Partial<{ name: string; lifePoints: number; xp: number; enemyThreshold: number; playerThreshold: number }>) {
   return { name: 'Goblin', lifePoints: 8, ...overrides }
 }
 
@@ -348,6 +348,108 @@ describe('resolveRound — combat modifiers', () => {
       const normal = resolveWith()
       const withBonus = resolveWith({ combatModifiers: { damageBonus: 3 } })
       expect(withBonus.damageDealt).toBe(normal.damageDealt + 3)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+})
+
+describe('resolveRound — configurable thresholds', () => {
+  it('playerThreshold 4 (Excalibur Jr.): roll 5 → hit', () => {
+    // Force player dice [3+2]=5, enemy dice miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((3 - 1) / 6)  // player die 1: 3
+      .mockReturnValueOnce((2 - 1) / 6)  // player die 2: 2 → sum 5
+      .mockReturnValueOnce(0)             // enemy miss
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith({ metadata: { playerThreshold: 4 } })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['playerThreshold']).toBe(4)
+      expect(detail['playerHit']).toBe(true) // 5 ≥ 4
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('playerThreshold 4 (Excalibur Jr.): roll 4 → hit (4 ≥ 4)', () => {
+    // Force player dice [2+2]=4, enemy dice miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((2 - 1) / 6)  // player die 1: 2
+      .mockReturnValueOnce((2 - 1) / 6)  // player die 2: 2 → sum 4
+      .mockReturnValueOnce(0)             // enemy miss
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith({ metadata: { playerThreshold: 4 } })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['playerHit']).toBe(true) // 4 ≥ 4
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('playerThreshold 4 (Excalibur Jr.): roll 3 → miss (3 < 4)', () => {
+    // Force player dice [2+1]=3, enemy dice miss
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((2 - 1) / 6)  // player die 1: 2
+      .mockReturnValueOnce((1 - 1) / 6)  // player die 2: 1 → sum 3
+      .mockReturnValueOnce(0)             // enemy miss
+      .mockReturnValueOnce(0)
+    try {
+      const result = resolveWith({ metadata: { playerThreshold: 4 } })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['playerHit']).toBe(false) // 3 < 4
+      expect(result.damageDealt).toBe(0)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('enemyThreshold 9: enemy roll 8 → miss', () => {
+    // Force player dice miss, enemy dice [4+4]=8
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)             // player die 1: 1
+      .mockReturnValueOnce(0)             // player die 2: 1 → miss
+      .mockReturnValueOnce((4 - 1) / 6)  // enemy die 1: 4
+      .mockReturnValueOnce((4 - 1) / 6)  // enemy die 2: 4 → sum 8
+    try {
+      const result = resolveWith({ enemyStats: makeEnemyStats({ enemyThreshold: 9 }) })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['enemyThreshold']).toBe(9)
+      expect(detail['enemyHit']).toBe(false) // 8 < 9
+      expect(result.damageTaken).toBe(0)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('enemyThreshold 9: enemy roll 9 → hit', () => {
+    // Force player dice miss, enemy dice [5+4]=9
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)             // player die 1: 1
+      .mockReturnValueOnce(0)             // player die 2: 1 → miss
+      .mockReturnValueOnce((5 - 1) / 6)  // enemy die 1: 5
+      .mockReturnValueOnce((4 - 1) / 6)  // enemy die 2: 4 → sum 9
+    try {
+      const result = resolveWith({ enemyStats: makeEnemyStats({ enemyThreshold: 9 }) })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['enemyHit']).toBe(true) // 9 ≥ 9
+      expect(result.damageTaken).toBe(3)    // 9 − 6 = 3
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('risky attack uses playerThreshold + 2, not hardcoded 9', () => {
+    // With playerThreshold 4, risky should use threshold 6
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    try {
+      const result = resolveWith({
+        metadata: { playerThreshold: 4 },
+        chosenOptions: { riskyAttack: true },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['playerThreshold']).toBe(6) // 4 + 2
     } finally {
       vi.restoreAllMocks()
     }
