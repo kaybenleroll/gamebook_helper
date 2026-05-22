@@ -68,6 +68,10 @@ export interface SvgCanvasProps {
   children?: React.ReactNode
   /** Called when the user finishes dragging a node; coordinates are snapped to grid. */
   onNodeDragEnd?: (nodeId: number, x: number, y: number) => void
+  /** List of maps available in the session, used to label cross-map edges. */
+  mapList?: Array<{ id: number; name: string }>
+  /** Node id to highlight with a temporary ring (e.g. after cross-map navigation). */
+  highlightNodeId?: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -167,11 +171,13 @@ function EdgeLayer({
   edges,
   selectedEdgeId,
   onEdgeClick,
+  mapList,
 }: {
   nodes: MapNode[]
   edges: MapEdge[]
   selectedEdgeId: number | null
   onEdgeClick: (edge: MapEdge) => void
+  mapList?: Array<{ id: number; name: string }>
 }) {
   const nodeMap = new Map<number, MapNode>()
   for (const node of nodes) nodeMap.set(node.id, node)
@@ -198,7 +204,10 @@ function EdgeLayer({
 
         const midX = (from.x + to.x) / 2
         const midY = (from.y + to.y) / 2
-        const style = edgeStyle(edge.connectionType)
+        const isCrossMap = edge.targetMapId != null
+        const style = isCrossMap
+          ? { stroke: '#a855f7', strokeWidth: 2, strokeDasharray: '6 3' }
+          : edgeStyle(edge.connectionType)
         const isSelected = edge.id === selectedEdgeId
 
         return (
@@ -252,6 +261,18 @@ function EdgeLayer({
                 {directionLabel(edge.direction)}
               </text>
             )}
+            {isCrossMap && mapList && (
+              <text
+                x={midX}
+                y={midY - 10}
+                textAnchor="middle"
+                fontSize={10}
+                fill="#a855f7"
+                style={{ userSelect: 'none', pointerEvents: 'none' }}
+              >
+                {`→ ${mapList.find((m) => m.id === edge.targetMapId)?.name ?? '?'}`}
+              </text>
+            )}
           </g>
         )
       })}
@@ -267,10 +288,12 @@ function NodeLayer({
   nodes,
   onNodeClick,
   onNodePointerDown,
+  highlightNodeId,
 }: {
   nodes: MapNode[]
   onNodeClick?: (index: number, worldX: number, worldY: number) => void
   onNodePointerDown?: (e: React.PointerEvent<SVGCircleElement>, nodeId: number, worldX: number, worldY: number) => void
+  highlightNodeId?: number | null
 }) {
   return (
     <>
@@ -300,6 +323,18 @@ function NodeLayer({
                 fill="none"
                 stroke={COLOUR_CURRENT_RING}
                 strokeWidth={3}
+              />
+            )}
+            {node.id === highlightNodeId && (
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={NODE_RADIUS + 8}
+                fill="none"
+                stroke="#fbbf24"
+                strokeWidth={3}
+                opacity={0.8}
+                style={{ pointerEvents: 'none' }}
               />
             )}
             <circle
@@ -350,6 +385,8 @@ export default function SvgCanvas({
   onEdgeClick,
   children,
   onNodeDragEnd,
+  mapList,
+  highlightNodeId,
 }: SvgCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
 
@@ -612,10 +649,12 @@ export default function SvgCanvas({
           edges={edges}
           selectedEdgeId={selectedEdgeId}
           onEdgeClick={onEdgeClick ?? (() => undefined)}
+          mapList={mapList}
         />
         <NodeLayer
           nodes={displayNodes}
           onNodeClick={onNodeClick}
+          highlightNodeId={highlightNodeId}
           onNodePointerDown={(e, nodeId, worldX, worldY) => {
             nodeDragRef.current = {
               nodeId,

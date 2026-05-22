@@ -11,6 +11,7 @@ interface NodeDetailPanelProps {
   onNodesChange: React.Dispatch<React.SetStateAction<MapNode[]>>
   mapId: number
   onAddConnectedNode?: () => void
+  footer?: React.ReactNode
 }
 
 function isPreset(value: string): boolean {
@@ -23,6 +24,7 @@ export default function NodeDetailPanel({
   onNodesChange,
   mapId,
   onAddConnectedNode,
+  footer,
 }: NodeDetailPanelProps) {
   const mutate = useOptimisticMutation(onNodesChange)
 
@@ -201,6 +203,8 @@ export default function NodeDetailPanel({
           </button>
         )}
       </div>
+
+      {footer}
     </div>
   )
 }
