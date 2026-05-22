@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import '../../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
-import { applyXpThreshold } from '../../../../../lib/game-systems/grail-quest'
+import { applyXpThreshold, xpToLpBonuses } from '../../../../../lib/game-systems/grail-quest'
 import { db } from '../../../../../lib/db'
 import { sessions, characters } from '../../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -12,9 +12,10 @@ interface EquipmentItem {
 }
 
 type PatchBody =
-  | { stat: string; delta: number; equipment?: never; clearCreationRolls?: never }
-  | { equipment: 'weapon' | 'armour'; item: EquipmentItem; stat?: never; delta?: never; clearCreationRolls?: never }
-  | { clearCreationRolls: true; stat?: never; delta?: never; equipment?: never }
+  | { stat: string; delta: number; target?: 'current' | 'initial'; value?: never; equipment?: never; clearCreationRolls?: never }
+  | { stat: string; value: number; target?: 'current' | 'initial'; delta?: never; equipment?: never; clearCreationRolls?: never }
+  | { equipment: 'weapon' | 'armour'; item: EquipmentItem; stat?: never; delta?: never; value?: never; clearCreationRolls?: never }
+  | { clearCreationRolls: true; stat?: never; delta?: never; value?: never; equipment?: never }
 
 export async function PATCH(
   request: NextRequest,
@@ -80,24 +81,40 @@ export async function PATCH(
     }
 
     // --- Stat adjustment branch ---
-    const { stat, delta } = body as { stat?: unknown; delta?: unknown }
-    if (!stat || typeof stat !== 'string' || typeof delta !== 'number') {
+    const { stat, delta, value: absoluteValue, target } = body as {
+      stat?: unknown; delta?: unknown; value?: unknown; target?: unknown
+    }
+
+    if (!stat || typeof stat !== 'string') {
+      return NextResponse.json({ error: 'stat (string) is required' }, { status: 400 })
+    }
+
+    const parsedTarget = (target as string | undefined) ?? 'current'
+    if (parsedTarget !== 'current' && parsedTarget !== 'initial') {
+      return NextResponse.json({ error: 'target must be "current" or "initial"' }, { status: 400 })
+    }
+
+    const isDelta = typeof delta === 'number'
+    const isAbsolute = typeof absoluteValue === 'number'
+    if (!isDelta && !isAbsolute) {
       return NextResponse.json(
-        { error: 'stat (string) and delta (number) are required' },
+        { error: 'delta (number) or value (number) is required' },
         { status: 400 },
       )
     }
 
-    // Reject adjustments when game-over
-    const healthValue =
-      typeof currentStats[gameSystem.primaryHealthStat] === 'number'
-        ? (currentStats[gameSystem.primaryHealthStat] as number)
-        : 0
-    if (healthValue <= 0) {
-      return NextResponse.json(
-        { error: 'Session is game over — stat adjustment not allowed' },
-        { status: 409 },
-      )
+    // Game-over guard — only blocks current stat writes, not initialStats
+    if (parsedTarget === 'current') {
+      const healthValue =
+        typeof currentStats[gameSystem.primaryHealthStat] === 'number'
+          ? (currentStats[gameSystem.primaryHealthStat] as number)
+          : 0
+      if (healthValue <= 0) {
+        return NextResponse.json(
+          { error: 'Session is game over — stat adjustment not allowed' },
+          { status: 409 },
+        )
+      }
     }
 
     const statDef = gameSystem.stats.find((s) => s.key === stat)
@@ -105,20 +122,47 @@ export async function PATCH(
       return NextResponse.json({ error: `Unknown stat: ${stat}` }, { status: 400 })
     }
 
-    const currentValue =
-      typeof currentStats[stat] === 'number' ? (currentStats[stat] as number) : statDef.min
-    const newValue = Math.max(
-      statDef.min,
-      Math.min(statDef.max ?? Infinity, currentValue + delta),
-    )
-    let newStats = { ...currentStats, [stat]: newValue }
+    let newStats = { ...currentStats }
     let newInitialStats = { ...currentInitialStats }
 
-    // Apply XP threshold logic for Grail Quest
-    if (session.gameSystemId === 'grail-quest' && stat === 'experiencePoints') {
-      const result = applyXpThreshold(newStats, newInitialStats)
-      newStats = result.stats
-      newInitialStats = result.initialStats
+    if (parsedTarget === 'current') {
+      const currentValue =
+        typeof currentStats[stat] === 'number' ? (currentStats[stat] as number) : statDef.min
+      const rawValue = isDelta ? currentValue + (delta as number) : (absoluteValue as number)
+      const newValue = Math.max(statDef.min, Math.min(statDef.max ?? Infinity, rawValue))
+      newStats = { ...newStats, [stat]: newValue }
+
+      // Apply XP threshold logic for Grail Quest
+      if (session.gameSystemId === 'grail-quest' && stat === 'experiencePoints') {
+        const result = applyXpThreshold(newStats, newInitialStats)
+        newStats = result.stats
+        newInitialStats = result.initialStats
+      }
+    } else {
+      // target === 'initial'
+      const currentInitialValue =
+        typeof currentInitialStats[stat] === 'number'
+          ? (currentInitialStats[stat] as number)
+          : statDef.min
+      const rawValue = isDelta ? currentInitialValue + (delta as number) : (absoluteValue as number)
+      const newInitialValue = Math.max(statDef.min, Math.min(statDef.max ?? Infinity, rawValue))
+      newInitialStats = { ...newInitialStats, [stat]: newInitialValue }
+
+      // Resync lifePointsXpBonuses when lifePoints initial is manually changed
+      if (session.gameSystemId === 'grail-quest' && stat === 'lifePoints') {
+        const currentXp =
+          typeof currentStats.experiencePoints === 'number'
+            ? (currentStats.experiencePoints as number)
+            : 0
+        newInitialStats = { ...newInitialStats, lifePointsXpBonuses: xpToLpBonuses(currentXp) }
+      }
+
+      // Clamp current stat down if it exceeds the new initialStats value
+      const currentStatValue =
+        typeof currentStats[stat] === 'number' ? (currentStats[stat] as number) : statDef.min
+      if (currentStatValue > newInitialValue) {
+        newStats = { ...newStats, [stat]: newInitialValue }
+      }
     }
 
     db.update(characters)

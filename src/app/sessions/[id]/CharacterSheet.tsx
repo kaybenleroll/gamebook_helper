@@ -30,6 +30,8 @@ export default function CharacterSheet({
 }: Props) {
   const [currentStats, setCurrentStats] = useState(initialCurrentStats)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialStats)
+  const [statInputs, setStatInputs] = useState<Record<string, string>>({})
+  const [initialStatInputs, setInitialStatInputs] = useState<Record<string, string>>({})
 
   // Weapon form state
   const equippedWeapon = currentStats['weapon'] as EquipmentItem | undefined
@@ -43,11 +45,11 @@ export default function CharacterSheet({
     equippedArmour?.value !== undefined ? String(equippedArmour.value) : '',
   )
 
-  async function adjust(stat: string, delta: number) {
+  async function patchCharacter(payload: Record<string, unknown>) {
     const res = await fetch(`/api/sessions/${sessionId}/character`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stat, delta }),
+      body: JSON.stringify(payload),
     })
     if (res.ok) {
       const data = (await res.json()) as {
@@ -57,6 +59,27 @@ export default function CharacterSheet({
       setCurrentStats(data.stats)
       if (data.initialStats) setCurrentInitialStats(data.initialStats)
       onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
+    }
+  }
+
+  function adjust(stat: string, delta: number) {
+    return patchCharacter({ stat, delta })
+  }
+
+  function parseAndApply(statKey: string, input: string, target: 'current' | 'initial') {
+    const trimmed = input.trim()
+    if (!trimmed) return
+    if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
+      const delta = Number(trimmed)
+      if (!isNaN(delta)) patchCharacter({ stat: statKey, delta, target })
+    } else {
+      const value = Number(trimmed)
+      if (!isNaN(value)) patchCharacter({ stat: statKey, value, target })
+    }
+    if (target === 'current') {
+      setStatInputs((prev) => ({ ...prev, [statKey]: '' }))
+    } else {
+      setInitialStatInputs((prev) => ({ ...prev, [statKey]: '' }))
     }
   }
 
@@ -127,6 +150,27 @@ export default function CharacterSheet({
                     >
                       +
                     </button>
+                    <input
+                      type="text"
+                      value={statInputs[stat.key] ?? ''}
+                      onChange={(e) =>
+                        setStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')
+                      }}
+                      placeholder="+5 / 32"
+                      className="w-16 border rounded px-1 py-0.5 text-sm font-mono"
+                      aria-label={`Set ${stat.label}`}
+                    />
+                    <button
+                      onClick={() => parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')}
+                      disabled={!(statInputs[stat.key] ?? '').trim()}
+                      className="px-2 py-0.5 text-sm border rounded disabled:opacity-40"
+                      aria-label={`Apply ${stat.label} change`}
+                    >
+                      Apply
+                    </button>
                   </div>
                   {isGrailQuest && stat.key === 'experiencePoints' && (
                     <div className="text-xs text-gray-500 text-center mt-1">
@@ -138,7 +182,37 @@ export default function CharacterSheet({
                   )}
                 </td>
                 <td className="py-2 text-right font-mono text-gray-500">
-                  {stat.max !== undefined ? startingMax : '—'}
+                  {stat.max !== undefined ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{startingMax}</span>
+                      <input
+                        type="text"
+                        value={initialStatInputs[stat.key] ?? ''}
+                        onChange={(e) =>
+                          setInitialStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter')
+                            parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                        }}
+                        placeholder="+5 / 32"
+                        className="w-16 border rounded px-1 py-0.5 text-sm font-mono text-left"
+                        aria-label={`Set starting ${stat.label}`}
+                      />
+                      <button
+                        onClick={() =>
+                          parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                        }
+                        disabled={!(initialStatInputs[stat.key] ?? '').trim()}
+                        className="px-2 py-0.5 text-sm border rounded disabled:opacity-40"
+                        aria-label={`Apply starting ${stat.label} change`}
+                      >
+                        Set
+                      </button>
+                    </div>
+                  ) : (
+                    '—'
+                  )}
                 </td>
               </tr>
             )
