@@ -7,6 +7,7 @@ import { sessions, characters } from '../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
 import CharacterSheet from './CharacterSheet'
 import DiceRoller from './DiceRoller'
+import MapGrid from './MapGrid'
 
 export default async function SessionPage({
   params,
@@ -61,6 +62,7 @@ export default async function SessionPage({
         isGameOver={isGameOver}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
+      <MapGrid sessionId={sessionId} />
     </main>
   )
 }
