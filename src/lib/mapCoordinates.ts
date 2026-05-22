@@ -42,3 +42,12 @@ export function screenToWorld(
     y: (screenY - pan.y) / zoom,
   }
 }
+
+const GRID_SIZE = 20
+
+/**
+ * Snap a world coordinate to the nearest grid line.
+ */
+export function snapToGrid(coord: number): number {
+  return Math.round(coord / GRID_SIZE) * GRID_SIZE
+}

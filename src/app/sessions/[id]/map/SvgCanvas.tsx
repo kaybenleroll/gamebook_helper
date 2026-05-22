@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { worldToScreen, screenToWorld, type Pan } from '../../../../lib/mapCoordinates'
+import { worldToScreen, screenToWorld, snapToGrid, type Pan } from '../../../../lib/mapCoordinates'
 import type { MapEdge } from './MapEdge'
 
 // ---------------------------------------------------------------------------
@@ -66,6 +66,8 @@ export interface SvgCanvasProps {
   onEdgeClick?: (edge: MapEdge) => void
   /** Children are rendered inside the world-transformed SVG group. */
   children?: React.ReactNode
+  /** Called when the user finishes dragging a node; coordinates are snapped to grid. */
+  onNodeDragEnd?: (nodeId: number, x: number, y: number) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +266,11 @@ function EdgeLayer({
 function NodeLayer({
   nodes,
   onNodeClick,
+  onNodePointerDown,
 }: {
   nodes: MapNode[]
   onNodeClick?: (index: number, worldX: number, worldY: number) => void
+  onNodePointerDown?: (e: React.PointerEvent<SVGCircleElement>, nodeId: number, worldX: number, worldY: number) => void
 }) {
   return (
     <>
@@ -283,7 +287,6 @@ function NodeLayer({
           <g
             key={node.id}
             className="node-group"
-            style={{ cursor: 'pointer' }}
             onClick={(e) => {
               e.stopPropagation()
               onNodeClick?.(index, node.x, node.y)
@@ -300,14 +303,19 @@ function NodeLayer({
               />
             )}
             <circle
+              data-node-id={node.id}
               cx={node.x}
               cy={node.y}
               r={NODE_RADIUS}
               fill={fill}
               stroke="white"
               strokeWidth={1.5}
-              style={{ transition: 'opacity 0.1s' }}
+              style={{ cursor: 'grab', transition: 'opacity 0.1s' }}
               className="hover:opacity-80"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                onNodePointerDown?.(e, node.id, node.x, node.y)
+              }}
             />
             {label && (
               <text
@@ -341,6 +349,7 @@ export default function SvgCanvas({
   selectedEdgeId = null,
   onEdgeClick,
   children,
+  onNodeDragEnd,
 }: SvgCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
 
@@ -350,8 +359,21 @@ export default function SvgCanvas({
   // Track container size for fit-all and clamp calculations.
   const [viewSize, setViewSize] = useState({ width: 800, height: 600 })
 
-  // Drag state (stored in a ref to avoid re-renders on every mouse move).
+  // Canvas pan drag state (stored in a ref to avoid re-renders on every mouse move).
   const dragRef = useRef<{ startX: number; startY: number; originPan: Pan } | null>(null)
+
+  // Node drag metadata — stored in a ref so moves don't trigger re-renders.
+  const nodeDragRef = useRef<{
+    nodeId: number
+    startScreenX: number
+    startScreenY: number
+    startWorldX: number
+    startWorldY: number
+    hasDragged: boolean
+  } | null>(null)
+
+  // Live position during node drag — triggers re-render for smooth visual feedback.
+  const [dragNodePos, setDragNodePos] = useState<{ nodeId: number; x: number; y: number } | null>(null)
 
   // ---------------------------------------------------------------------------
   // Measure container
@@ -437,6 +459,28 @@ export default function SvgCanvas({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
+      if (nodeDragRef.current) {
+        const dx = e.clientX - nodeDragRef.current.startScreenX
+        const dy = e.clientY - nodeDragRef.current.startScreenY
+        if (!nodeDragRef.current.hasDragged && Math.hypot(dx, dy) > 5) {
+          nodeDragRef.current.hasDragged = true
+          ;(e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId)
+        }
+        if (nodeDragRef.current.hasDragged) {
+          const svgRect = svgRef.current?.getBoundingClientRect()
+          if (svgRect) {
+            const { x, y } = screenToWorld(
+              e.clientX - svgRect.left,
+              e.clientY - svgRect.top,
+              pan,
+              zoom,
+            )
+            setDragNodePos({ nodeId: nodeDragRef.current.nodeId, x, y })
+          }
+        }
+        return
+      }
+
       if (!dragRef.current) return
 
       const dx = e.clientX - dragRef.current.startX
@@ -455,11 +499,22 @@ export default function SvgCanvas({
 
       setPan(clamped)
     },
-    [zoom, viewSize, nodeBounds],
+    [pan, zoom, viewSize, nodeBounds],
   )
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
+      if (nodeDragRef.current) {
+        if (nodeDragRef.current.hasDragged && dragNodePos) {
+          const snappedX = snapToGrid(dragNodePos.x)
+          const snappedY = snapToGrid(dragNodePos.y)
+          onNodeDragEnd?.(nodeDragRef.current.nodeId, snappedX, snappedY)
+        }
+        nodeDragRef.current = null
+        setDragNodePos(null)
+        return
+      }
+
       if (!dragRef.current) return
 
       const dx = Math.abs(e.clientX - dragRef.current.startX)
@@ -477,7 +532,7 @@ export default function SvgCanvas({
         onBackgroundClick(worldX, worldY)
       }
     },
-    [pan, zoom, onBackgroundClick],
+    [pan, zoom, onBackgroundClick, dragNodePos, onNodeDragEnd],
   )
 
   // ---------------------------------------------------------------------------
@@ -523,11 +578,18 @@ export default function SvgCanvas({
 
   const transform = `translate(${pan.x}, ${pan.y}) scale(${zoom})`
 
+  // Merge live drag position so the dragged node tracks the pointer instantly.
+  const displayNodes = dragNodePos
+    ? nodes.map((n) => (n.id === dragNodePos.nodeId ? { ...n, x: dragNodePos.x, y: dragNodePos.y } : n))
+    : nodes
+
+  const svgCursor = dragNodePos ? 'grabbing' : dragRef.current ? 'grabbing' : 'grab'
+
   return (
     <svg
       ref={svgRef}
       className="w-full h-full touch-none select-none"
-      style={{ cursor: dragRef.current ? 'grabbing' : 'grab' }}
+      style={{ cursor: svgCursor }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -546,12 +608,25 @@ export default function SvgCanvas({
       {/* World-space group: nodes and children are placed here */}
       <g transform={transform}>
         <EdgeLayer
-          nodes={nodes}
+          nodes={displayNodes}
           edges={edges}
           selectedEdgeId={selectedEdgeId}
           onEdgeClick={onEdgeClick ?? (() => undefined)}
         />
-        <NodeLayer nodes={nodes} onNodeClick={onNodeClick} />
+        <NodeLayer
+          nodes={displayNodes}
+          onNodeClick={onNodeClick}
+          onNodePointerDown={(e, nodeId, worldX, worldY) => {
+            nodeDragRef.current = {
+              nodeId,
+              startScreenX: e.clientX,
+              startScreenY: e.clientY,
+              startWorldX: worldX,
+              startWorldY: worldY,
+              hasDragged: false,
+            }
+          }}
+        />
         {children}
       </g>
     </svg>
