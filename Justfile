@@ -23,9 +23,9 @@ test:
 test-unit:
   podman exec gamebook-app npm run test:unit
 
-# Run E2E tests only
+# Run E2E tests only (requires gamebook-app to be running)
 test-e2e:
-  podman exec gamebook-app npm run test:e2e
+  podman-compose --profile test run --rm gamebook-playwright npx playwright test
 
 # Run full test suite (required before PR)
 test-all: test-unit test-e2e
