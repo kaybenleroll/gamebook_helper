@@ -35,6 +35,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unknown game system' }, { status: 500 })
     }
 
+    // Reject adjustments when game-over
+    const currentStatsForCheck = character.stats as Record<string, number>
+    const healthValue = currentStatsForCheck[gameSystem.primaryHealthStat] ?? 0
+    if (healthValue <= 0) {
+      return NextResponse.json({ error: 'Session is game over — stat adjustment not allowed' }, { status: 409 })
+    }
+
     const statDef = gameSystem.stats.find((s) => s.key === stat)
     if (!statDef) {
       return NextResponse.json({ error: `Unknown stat: ${stat}` }, { status: 400 })
