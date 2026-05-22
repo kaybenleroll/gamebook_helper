@@ -17,6 +17,8 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 - **Any grep, find, rg, fd, or similar search command → delegate to Explore subagent regardless of output size.** Search is exploration even when results are small; the main thread must not perform raw file discovery. Sequential greps compound the problem — delegate the entire sequence together.
 - **Bash commands expected to return >20 lines → delegate to subagent, return only relevant output.** Verbose output (label lists, directory trees, test logs) pollutes main context; the subagent filters to what matters.
 - Subagents must run commands and show actual output — never claim results without running the command.
+- **Before parallelising subagent tasks, map which files each modifies** — tasks touching the same file must be sequenced; overlapping writes cause merge conflicts.
+- **Cap all subagent response lengths — long outputs go to `.scratch/`, main thread gets a summary only.** Verbose subagent returns (findings reports, stress-test output, exploration dumps) land in main context in full and compound across a long session. Instruct every subagent: "report in under 150 words; write full findings to `.scratch/<filename>.md` and return only a decision-relevant summary." Read the file only if a specific detail is later needed.
 - **Establish shared definitions before handing off** — misaligned terms cause the subagent to analyse the wrong thing.
 - When parallel subagents may outlive the main script, use explicit per-subagent waits — a collect-all pattern exits before containers finish if any subagent completes early.
 - Do not trust a subagent's summary alone — read the file or run `git diff` before reporting complete.
@@ -33,6 +35,8 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 ## Workflow Sequencing
 
 - **Run `grill-me` before creating the GitHub issue** — closes ambiguity and achieves the ≥95% confidence threshold; issue creation comes after.
+- **Run grill-me in the main thread only** — it requires interactive back-and-forth with the user; cannot run inside a subagent.
+- **Verify game-system-specific features end-to-end using that exact system** — generic tests miss architecture violations such as wrong stat field names per system.
 - **Use /diagnose when something fails with no known root cause** — the issue emerges from the diagnosis; create it after, not before.
 - **Defer issue creation and branching until exploration stabilises; batch as one issue** — incremental issue creation during rapid iteration interrupts flow.
 - **Skip the written plan when grill-me and stress-test have closed ambiguity** — the conversation IS the plan.
@@ -46,6 +50,7 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 
 ## Codebase and File Hygiene
 
+- **Spec files belong in a git-tracked `docs/` folder, not `.scratch/`** — specs are project provenance; treating them as ephemeral staging loses version history.
 - **Before assuming a file is active/stale/unused**, check git history, hooks, and compose files — script wiring may live in compose, not just Justfile.
 - **Verify `.scratch/` docs against actual code before including in subagent prompts** — staging docs drift during active refactors; check command syntax and file paths.
 - **Write handoff notes in `.scratch/NEXT_STEPS.md`** and refresh them to reflect failed attempts before starting a new session — stale scope carryover reopens already-failed approaches.
