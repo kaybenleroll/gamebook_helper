@@ -19,6 +19,11 @@ const ZOOM_STEP = 0.1
 /** Padding (world units) added around all nodes when computing canvas bounds. */
 const BOUNDS_PADDING = 200
 
+const NODE_RADIUS = 18
+const COLOUR_VISITED = '#3b82f6'
+const COLOUR_UNVISITED = '#9ca3af'
+const COLOUR_CURRENT_RING = '#f59e0b'
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -30,9 +35,24 @@ export interface NodeBounds {
   height: number
 }
 
+export interface MapNode {
+  id: number
+  mapId: number
+  sectionNumber: number | null
+  locationType: string
+  locationTypeCustom: string | null
+  notes: string | null
+  visited: boolean
+  isCurrent: boolean
+  x: number
+  y: number
+}
+
 export interface SvgCanvasProps {
   /** Bounding boxes of all nodes in world coordinates (used to clamp + fit). */
   nodeBounds?: NodeBounds[]
+  /** Nodes to render on the canvas. */
+  nodes?: MapNode[]
   /** Called when the user clicks on the canvas background. */
   onBackgroundClick?: (worldX: number, worldY: number) => void
   /** Called when the user clicks on a node (by index). Stub — wired in Slice 4c. */
@@ -94,12 +114,85 @@ function clampPan(
 }
 
 // ---------------------------------------------------------------------------
+// NodeLayer
+// ---------------------------------------------------------------------------
+
+function NodeLayer({
+  nodes,
+  onNodeClick,
+}: {
+  nodes: MapNode[]
+  onNodeClick?: (index: number, worldX: number, worldY: number) => void
+}) {
+  return (
+    <>
+      {nodes.map((node, index) => {
+        const fill = node.visited ? COLOUR_VISITED : COLOUR_UNVISITED
+        const label = [
+          node.sectionNumber !== null ? String(node.sectionNumber) : null,
+          node.locationType,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+
+        return (
+          <g
+            key={node.id}
+            className="node-group"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onNodeClick?.(index, node.x, node.y)
+            }}
+          >
+            {node.isCurrent && (
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={NODE_RADIUS + 5}
+                fill="none"
+                stroke={COLOUR_CURRENT_RING}
+                strokeWidth={3}
+              />
+            )}
+            <circle
+              cx={node.x}
+              cy={node.y}
+              r={NODE_RADIUS}
+              fill={fill}
+              stroke="white"
+              strokeWidth={1.5}
+              style={{ transition: 'opacity 0.1s' }}
+              className="hover:opacity-80"
+            />
+            {label && (
+              <text
+                x={node.x}
+                y={node.y + NODE_RADIUS + 14}
+                textAnchor="middle"
+                fontSize={11}
+                fill="#374151"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {label}
+              </text>
+            )}
+          </g>
+        )
+      })}
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function SvgCanvas({
   nodeBounds = [],
+  nodes = [],
   onBackgroundClick,
+  onNodeClick,
   children,
 }: SvgCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -303,8 +396,11 @@ export default function SvgCanvas({
         fill="transparent"
       />
 
-      {/* World-space group: all children are placed here */}
-      <g transform={transform}>{children}</g>
+      {/* World-space group: nodes and children are placed here */}
+      <g transform={transform}>
+        <NodeLayer nodes={nodes} onNodeClick={onNodeClick} />
+        {children}
+      </g>
     </svg>
   )
 }

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import SvgCanvas from './map/SvgCanvas'
+import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
+import NodeDetailPanel from './map/NodeDetailPanel'
 
 interface MapEntry {
   id: number
@@ -13,6 +14,17 @@ interface MapEntry {
 
 interface Props {
   sessionId: number
+}
+
+const NODE_RADIUS = 18
+
+function deriveNodeBounds(nodes: MapNode[]): NodeBounds[] {
+  return nodes.map((n) => ({
+    x: n.x - NODE_RADIUS,
+    y: n.y - NODE_RADIUS,
+    width: NODE_RADIUS * 2,
+    height: NODE_RADIUS * 2,
+  }))
 }
 
 export default function MapGrid({ sessionId }: Props) {
@@ -29,6 +41,12 @@ export default function MapGrid({ sessionId }: Props) {
 
   // Delete confirmation state
   const [deletingId, setDeletingId] = useState<number | null>(null)
+
+  // Node state for the active map
+  const [nodes, setNodes] = useState<MapNode[]>([])
+
+  // Selection state — which node (by id) has the detail panel open
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null)
 
   const activeMapId = searchParams.get('mapId') ? parseInt(searchParams.get('mapId')!, 10) : null
 
@@ -49,6 +67,26 @@ export default function MapGrid({ sessionId }: Props) {
   useEffect(() => {
     void fetchMaps()
   }, [fetchMaps])
+
+  useEffect(() => {
+    setSelectedNodeId(null)
+
+    if (!activeMapId) {
+      setNodes([])
+      return
+    }
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/maps/${activeMapId}/nodes`)
+        if (!res.ok) return
+        const data = (await res.json()) as MapNode[]
+        setNodes(data)
+      } catch {
+        setNodes([])
+      }
+    })()
+  }, [activeMapId])
 
   function setActiveMap(mapId: number) {
     const params = new URLSearchParams(searchParams.toString())
@@ -257,13 +295,35 @@ export default function MapGrid({ sessionId }: Props) {
           </button>
         </div>
       ) : activeMapId ? (
-        <div className="mt-4 border border-gray-200 rounded overflow-hidden" style={{ height: 520 }}>
-          <SvgCanvas
-            onBackgroundClick={(worldX, worldY) => {
-              // Placeholder — node placement wired in Slice 4b.
-              console.debug('Canvas click at world', worldX.toFixed(1), worldY.toFixed(1))
-            }}
-          />
+        <div
+          className="mt-4 border border-gray-200 rounded overflow-hidden flex"
+          style={{ height: 520 }}
+        >
+          <div className="flex-1 min-w-0">
+            <SvgCanvas
+              nodes={nodes}
+              nodeBounds={deriveNodeBounds(nodes)}
+              onBackgroundClick={() => setSelectedNodeId(null)}
+              onNodeClick={(index) => {
+                const node = nodes[index]
+                if (node) setSelectedNodeId(node.id)
+              }}
+            />
+          </div>
+
+          {selectedNodeId !== null && (() => {
+            const selectedNode = nodes.find((n) => n.id === selectedNodeId)
+            if (!selectedNode) return null
+            return (
+              <NodeDetailPanel
+                key={selectedNodeId}
+                node={selectedNode}
+                mapId={activeMapId}
+                onClose={() => setSelectedNodeId(null)}
+                onNodesChange={setNodes}
+              />
+            )
+          })()}
         </div>
       ) : (
         <div className="mt-4 p-4 border border-gray-200 rounded text-gray-500">
