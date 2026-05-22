@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import SvgCanvas from './map/SvgCanvas'
 
 interface MapEntry {
   id: number
@@ -255,11 +256,18 @@ export default function MapGrid({ sessionId }: Props) {
             Create first map
           </button>
         </div>
+      ) : activeMapId ? (
+        <div className="mt-4 border border-gray-200 rounded overflow-hidden" style={{ height: 520 }}>
+          <SvgCanvas
+            onBackgroundClick={(worldX, worldY) => {
+              // Placeholder — node placement wired in Slice 4b.
+              console.debug('Canvas click at world', worldX.toFixed(1), worldY.toFixed(1))
+            }}
+          />
+        </div>
       ) : (
         <div className="mt-4 p-4 border border-gray-200 rounded text-gray-500">
-          {activeMapId
-            ? 'Map coming soon'
-            : 'Select a map tab above'}
+          Select a map tab above
         </div>
       )}
     </div>
