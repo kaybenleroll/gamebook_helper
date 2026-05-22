@@ -21,10 +21,10 @@ export const characters = sqliteTable(
       .notNull()
       .references(() => sessions.id),
     stats: text('stats', { mode: 'json' })
-      .$type<Record<string, number>>()
+      .$type<Record<string, unknown>>()
       .notNull(),
     initialStats: text('initial_stats', { mode: 'json' })
-      .$type<Record<string, number>>()
+      .$type<Record<string, unknown>>()
       .notNull(),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
