@@ -1,38 +1,53 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, request } from '@playwright/test'
 
 test('sessions list page loads', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveTitle(/gamebook/i)
 })
 
-test('sessions list shows adventure entries with delete buttons', async ({ page }) => {
-  await page.goto('/')
-  const deleteButtons = page.getByRole('button', { name: /delete/i })
-  await expect(deleteButtons.first()).toBeVisible()
-})
+test.describe('sessions list with data', () => {
+  let sessionId: number
 
-test('delete modal opens and requires exact title match', async ({ page }) => {
-  await page.goto('/')
+  test.beforeAll(async ({ baseURL }) => {
+    const ctx = await request.newContext({ baseURL })
+    const res = await ctx.post('/api/sessions', {
+      data: { bookTitle: 'E2E Fixture Session', gameSystemId: 'grail-quest' },
+    })
+    sessionId = (await res.json()).sessionId
+    await ctx.dispose()
+  })
 
-  // Click the first delete button
-  const firstDeleteButton = page.getByRole('button', { name: /delete/i }).first()
-  await firstDeleteButton.click()
+  test.afterAll(async ({ baseURL }) => {
+    const ctx = await request.newContext({ baseURL })
+    await ctx.delete(`/api/sessions/${sessionId}`)
+    await ctx.dispose()
+  })
 
-  // Modal should be visible
-  await expect(page.getByText('Delete Adventure')).toBeVisible()
+  test('sessions list shows adventure entries with delete buttons', async ({ page }) => {
+    await page.goto('/')
+    const deleteButtons = page.getByRole('button', { name: /delete/i })
+    await expect(deleteButtons.first()).toBeVisible()
+  })
 
-  // Delete button in modal should be disabled with no input
-  const confirmDeleteButton = page.getByRole('button', { name: /^Delete$/ })
-  await expect(confirmDeleteButton).toBeDisabled()
+  test('delete modal opens and requires exact title match', async ({ page }) => {
+    await page.goto('/')
 
-  // Typing a wrong title keeps the button disabled
-  const input = page.getByPlaceholder('Type book title here')
-  await input.fill('wrong title')
-  await expect(confirmDeleteButton).toBeDisabled()
+    const sessionLink = page.locator(`a[href="/sessions/${sessionId}"]`)
+    const listItem = sessionLink.locator('..')
+    await listItem.getByRole('button').click()
 
-  // Cancel closes the modal
-  await page.getByRole('button', { name: 'Cancel' }).click()
-  await expect(page.getByText('Delete Adventure')).not.toBeVisible()
+    await expect(page.getByText('Delete Adventure')).toBeVisible()
+
+    const confirmDeleteButton = page.getByRole('button', { name: /^Delete$/ })
+    await expect(confirmDeleteButton).toBeDisabled()
+
+    const input = page.getByPlaceholder('Type book title here')
+    await input.fill('wrong title')
+    await expect(confirmDeleteButton).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByText('Delete Adventure')).not.toBeVisible()
+  })
 })
 
 test('delete removes session from list immediately', async ({ page }) => {
