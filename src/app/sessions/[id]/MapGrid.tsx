@@ -5,7 +5,7 @@ import { useOptimisticMutation } from '../../../lib/useOptimisticMutation'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
 import NodeDetailPanel from './map/NodeDetailPanel'
-import DirectionPicker from './map/DirectionPicker'
+import DirectionPicker, { type DirectionChoice } from './map/DirectionPicker'
 import type { MapEdge } from './map/MapEdge'
 import { computeConnectedNodePosition } from '../../../lib/mapPlacement'
 import type { Direction } from '../../../lib/db/schema'
@@ -273,7 +273,7 @@ export default function MapGrid({ sessionId }: Props) {
     setSelectedNodeId(null)
   }
 
-  async function handleDirectionChosen(direction: Direction | null) {
+  async function handleDirectionChosen({ direction, sectionNumber }: DirectionChoice) {
     const coords = pendingPlacement
     setPendingPlacement(null)
 
@@ -281,6 +281,47 @@ export default function MapGrid({ sessionId }: Props) {
 
     const parentNode =
       selectedNodeId !== null ? nodes.find((n) => n.id === selectedNodeId) ?? null : null
+
+    // If a section number was entered and a node with that number already exists,
+    // only create an edge to the existing node — skip node creation entirely.
+    const existingNode =
+      sectionNumber != null
+        ? nodes.find((n) => n.sectionNumber === sectionNumber)
+        : undefined
+
+    if (existingNode !== undefined && parentNode !== null && direction !== null) {
+      const tempEdgeId = -Date.now()
+      const optimisticEdge: MapEdge = {
+        id: tempEdgeId,
+        mapId: activeMapId,
+        fromNodeId: parentNode.id,
+        toNodeId: existingNode.id,
+        targetMapId: null,
+        direction,
+        connectionType: 'open',
+      }
+      setEdges((prev) => [...prev, optimisticEdge])
+
+      try {
+        const edgeRes = await fetch(`/api/maps/${activeMapId}/edges`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromNodeId: parentNode.id,
+            toNodeId: existingNode.id,
+            direction,
+            connectionType: 'open',
+          }),
+        })
+        if (!edgeRes.ok) throw new Error('Failed to create edge')
+        const createdEdge = (await edgeRes.json()) as MapEdge
+        setEdges((prev) => prev.map((e) => (e.id === tempEdgeId ? createdEdge : e)))
+        setSelectedNodeId(existingNode.id)
+      } catch {
+        setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId))
+      }
+      return
+    }
 
     let pos: { x: number; y: number }
     if (parentNode !== null && direction !== null) {
@@ -295,7 +336,7 @@ export default function MapGrid({ sessionId }: Props) {
     const optimisticNode: MapNode = {
       id: tempNodeId,
       mapId: activeMapId,
-      sectionNumber: null,
+      sectionNumber: sectionNumber ?? null,
       locationType: 'room',
       locationTypeCustom: null,
       notes: null,
@@ -325,7 +366,12 @@ export default function MapGrid({ sessionId }: Props) {
       const nodeRes = await fetch(`/api/maps/${activeMapId}/nodes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locationType: 'room', x: pos.x, y: pos.y }),
+        body: JSON.stringify({
+          locationType: 'room',
+          x: pos.x,
+          y: pos.y,
+          ...(sectionNumber != null ? { sectionNumber } : {}),
+        }),
       })
       if (!nodeRes.ok) throw new Error('Failed to create node')
       const createdNode = (await nodeRes.json()) as MapNode
@@ -357,7 +403,7 @@ export default function MapGrid({ sessionId }: Props) {
 
   if (loading) {
     return (
-      <div className="mt-6 p-4 border border-gray-200 rounded text-gray-400">
+      <div className="p-4 border border-gray-200 rounded text-gray-400">
         Loading maps…
       </div>
     )
@@ -365,14 +411,14 @@ export default function MapGrid({ sessionId }: Props) {
 
   if (error) {
     return (
-      <div className="mt-6 p-4 border border-red-200 rounded text-red-600">
+      <div className="p-4 border border-red-200 rounded text-red-600">
         {error}
       </div>
     )
   }
 
   return (
-    <div className="mt-6">
+    <div className="flex flex-col h-full">
       {/* Tab bar */}
       <div className="flex items-center border-b border-gray-200 gap-1 flex-wrap">
         {mapList.length === 0 ? (
@@ -479,8 +525,7 @@ export default function MapGrid({ sessionId }: Props) {
         </div>
       ) : activeMapId ? (
         <div
-          className="mt-4 border border-gray-200 rounded overflow-hidden flex relative"
-          style={{ height: 520 }}
+          className="mt-4 border border-gray-200 rounded overflow-hidden flex relative flex-1 min-h-0"
         >
           <div className="flex-1 min-w-0">
             <SvgCanvas
@@ -695,7 +740,7 @@ export default function MapGrid({ sessionId }: Props) {
           {pendingPlacement !== null && (
             <DirectionPicker
               hasParent={selectedNodeId !== null}
-              onSelect={(direction) => void handleDirectionChosen(direction)}
+              onSelect={(choice) => void handleDirectionChosen(choice)}
               onCancel={handleDirectionCancel}
             />
           )}
