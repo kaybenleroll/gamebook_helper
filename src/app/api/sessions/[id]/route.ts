@@ -65,11 +65,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
     }
 
-    const body = await request.json() as { bookTitle?: unknown }
-    const { bookTitle } = body
+    const body = await request.json() as { bookTitle?: unknown; notes?: unknown }
+    const { bookTitle, notes } = body
 
-    if (!bookTitle || typeof bookTitle !== 'string' || bookTitle.trim() === '') {
-      return NextResponse.json({ error: 'bookTitle is required and must be a non-empty string' }, { status: 400 })
+    if (bookTitle !== undefined && (typeof bookTitle !== 'string' || bookTitle.trim() === '')) {
+      return NextResponse.json({ error: 'bookTitle must be a non-empty string' }, { status: 400 })
+    }
+
+    if (notes !== undefined && notes !== null && typeof notes !== 'string') {
+      return NextResponse.json({ error: 'notes must be a string or null' }, { status: 400 })
+    }
+
+    if (bookTitle === undefined && notes === undefined) {
+      return NextResponse.json({ error: 'At least one field (bookTitle or notes) must be provided' }, { status: 400 })
     }
 
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
@@ -77,12 +85,26 @@ export async function PATCH(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
+    const updateFields: {
+      updatedAt: Date
+      bookTitle?: string
+      notes?: string | null
+    } = { updatedAt: new Date() }
+    if (bookTitle !== undefined) updateFields.bookTitle = (bookTitle as string).trim()
+    if (notes !== undefined) updateFields.notes = notes === '' ? null : (notes as string)
+
     db.update(sessions)
-      .set({ bookTitle: bookTitle.trim(), updatedAt: new Date() })
+      .set(updateFields)
       .where(eq(sessions.id, sessionId))
       .run()
 
-    return NextResponse.json({ id: sessionId, bookTitle: bookTitle.trim() })
+    const updatedSession = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()!
+
+    return NextResponse.json({
+      id: sessionId,
+      bookTitle: updatedSession.bookTitle,
+      notes: updatedSession.notes ?? null,
+    })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -23,6 +23,7 @@ export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   gameSystemId: text('game_system_id').notNull(),
   bookTitle: text('book_title').notNull(),
+  notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
