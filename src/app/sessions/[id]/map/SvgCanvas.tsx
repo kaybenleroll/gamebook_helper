@@ -60,6 +60,10 @@ export interface SvgCanvasProps {
   onBackgroundClick?: (worldX: number, worldY: number) => void
   /** Called when the user clicks on a node (by index). Stub — wired in Slice 4c. */
   onNodeClick?: (index: number, worldX: number, worldY: number) => void
+  /** The id of the currently selected edge, or null. */
+  selectedEdgeId?: number | null
+  /** Called when the user clicks an edge line. */
+  onEdgeClick?: (edge: MapEdge) => void
   /** Children are rendered inside the world-transformed SVG group. */
   children?: React.ReactNode
 }
@@ -117,21 +121,74 @@ function clampPan(
 }
 
 // ---------------------------------------------------------------------------
+// Edge styling helpers
+// ---------------------------------------------------------------------------
+
+interface EdgeStyle {
+  stroke: string
+  strokeWidth: number
+  strokeDasharray?: string
+  markerEnd?: string
+}
+
+function edgeStyle(connectionType: string): EdgeStyle {
+  switch (connectionType) {
+    case 'open':
+      return { stroke: '#94a3b8', strokeWidth: 2 }
+    case 'secret':
+      return { stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '4 2' }
+    case 'locked':
+      return { stroke: '#ef4444', strokeWidth: 3 }
+    case 'door':
+      return { stroke: '#94a3b8', strokeWidth: 2, strokeDasharray: '8 2' }
+    case 'one_way':
+      return { stroke: '#3b82f6', strokeWidth: 2, markerEnd: 'url(#arrowhead)' }
+    case 'blocked':
+      return { stroke: '#ef4444', strokeWidth: 2, strokeDasharray: '2 2' }
+    default:
+      return { stroke: '#94a3b8', strokeWidth: 2 }
+  }
+}
+
+function directionLabel(direction: string): string {
+  if (direction === 'up') return '↑'
+  if (direction === 'down') return '↓'
+  return direction
+}
+
+// ---------------------------------------------------------------------------
 // EdgeLayer
 // ---------------------------------------------------------------------------
 
 function EdgeLayer({
   nodes,
   edges,
+  selectedEdgeId,
+  onEdgeClick,
 }: {
   nodes: MapNode[]
   edges: MapEdge[]
+  selectedEdgeId: number | null
+  onEdgeClick: (edge: MapEdge) => void
 }) {
   const nodeMap = new Map<number, MapNode>()
   for (const node of nodes) nodeMap.set(node.id, node)
 
   return (
     <>
+      <defs>
+        <marker
+          id="arrowhead"
+          markerWidth="8"
+          markerHeight="6"
+          refX="8"
+          refY="3"
+          orient="auto"
+        >
+          <polygon points="0 0, 8 3, 0 6" fill="#3b82f6" />
+        </marker>
+      </defs>
+
       {edges.map((edge) => {
         const from = nodeMap.get(edge.fromNodeId)
         const to = nodeMap.get(edge.toNodeId)
@@ -139,17 +196,46 @@ function EdgeLayer({
 
         const midX = (from.x + to.x) / 2
         const midY = (from.y + to.y) / 2
+        const style = edgeStyle(edge.connectionType)
+        const isSelected = edge.id === selectedEdgeId
 
         return (
           <g key={edge.id}>
+            {isSelected && (
+              <line
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke="#3b82f6"
+                strokeWidth={style.strokeWidth + 6}
+                strokeOpacity={0.3}
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
             <line
               x1={from.x}
               y1={from.y}
               x2={to.x}
               y2={to.y}
-              stroke="#94a3b8"
-              strokeWidth={2}
-              strokeDasharray="4 2"
+              stroke={style.stroke}
+              strokeWidth={style.strokeWidth}
+              strokeDasharray={style.strokeDasharray}
+              markerEnd={style.markerEnd}
+            />
+            {/* Invisible wider hit target for click selection */}
+            <line
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
+              stroke="transparent"
+              strokeWidth={12}
+              style={{ cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdgeClick(edge)
+              }}
             />
             {edge.direction !== null && (
               <text
@@ -161,7 +247,7 @@ function EdgeLayer({
                 fill="#6b7280"
                 style={{ pointerEvents: 'none', userSelect: 'none' }}
               >
-                {edge.direction}
+                {directionLabel(edge.direction)}
               </text>
             )}
           </g>
@@ -252,6 +338,8 @@ export default function SvgCanvas({
   edges = [],
   onBackgroundClick,
   onNodeClick,
+  selectedEdgeId = null,
+  onEdgeClick,
   children,
 }: SvgCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -457,7 +545,12 @@ export default function SvgCanvas({
 
       {/* World-space group: nodes and children are placed here */}
       <g transform={transform}>
-        <EdgeLayer nodes={nodes} edges={edges} />
+        <EdgeLayer
+          nodes={nodes}
+          edges={edges}
+          selectedEdgeId={selectedEdgeId}
+          onEdgeClick={onEdgeClick ?? (() => undefined)}
+        />
         <NodeLayer nodes={nodes} onNodeClick={onNodeClick} />
         {children}
       </g>
