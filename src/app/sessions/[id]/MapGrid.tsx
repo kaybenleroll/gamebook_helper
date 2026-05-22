@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useOptimisticMutation } from '../../../lib/useOptimisticMutation'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
@@ -61,6 +61,18 @@ export default function MapGrid({ sessionId }: Props) {
 
   // Pending placement — set when the direction picker should be shown
   const [pendingPlacement, setPendingPlacement] = useState<{ worldX: number; worldY: number } | null>(null)
+
+  // Highlight a destination node briefly after cross-map navigation
+  const [highlightNodeId, setHighlightNodeId] = useState<number | null>(null)
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cross-map link creation form state
+  const [crossMapForm, setCrossMapForm] = useState<{
+    destMapId: number | null
+    destNodes: Array<{ id: number; sectionNumber: number | null }>
+    destNodeId: number | null
+    connectionType: string
+  } | null>(null)
 
   const activeMapId = searchParams.get('mapId') ? parseInt(searchParams.get('mapId')!, 10) : null
 
@@ -480,29 +492,138 @@ export default function MapGrid({ sessionId }: Props) {
               onNodeClick={(index) => {
                 const node = nodes[index]
                 if (node) {
+                  setCrossMapForm(null)
                   setSelectedEdge(null)
                   setSelectedNodeId(node.id)
                 }
               }}
               selectedEdgeId={selectedEdge?.id ?? null}
               onEdgeClick={(edge) => {
+                if (edge.targetMapId != null) {
+                  setActiveMap(edge.targetMapId)
+                  if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current)
+                  setHighlightNodeId(edge.toNodeId)
+                  highlightTimerRef.current = setTimeout(() => setHighlightNodeId(null), 500)
+                  return
+                }
                 setSelectedNodeId(null)
                 setSelectedEdge(edge)
               }}
+              mapList={mapList.map((m) => ({ id: m.id, name: m.name }))}
+              highlightNodeId={highlightNodeId}
             />
           </div>
 
           {selectedNodeId !== null && (() => {
             const selectedNode = nodes.find((n) => n.id === selectedNodeId)
             if (!selectedNode) return null
+
+            const crossMapFooter = (
+              <div className="px-4 pb-4" style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8 }}>
+                {crossMapForm === null ? (
+                  <button
+                    className="w-full px-3 py-2 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50"
+                    onClick={() => setCrossMapForm({ destMapId: null, destNodes: [], destNodeId: null, connectionType: 'open' })}
+                  >
+                    + Cross-map link
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Destination map</label>
+                      <select
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        value={crossMapForm.destMapId ?? ''}
+                        onChange={async (e) => {
+                          const id = Number(e.target.value)
+                          const res = await fetch(`/api/maps/${id}/nodes`)
+                          const destNodes = res.ok ? (await res.json() as Array<{ id: number; sectionNumber: number | null }>) : []
+                          setCrossMapForm((f) => f && ({ ...f, destMapId: id, destNodes, destNodeId: null }))
+                        }}
+                      >
+                        <option value="">Select map…</option>
+                        {mapList.filter((m) => m.id !== activeMapId).map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Destination node</label>
+                      <select
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        value={crossMapForm.destNodeId ?? ''}
+                        onChange={(e) => setCrossMapForm((f) => f && ({ ...f, destNodeId: Number(e.target.value) }))}
+                        disabled={!crossMapForm.destMapId}
+                      >
+                        <option value="">Select node…</option>
+                        {crossMapForm.destNodes.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.sectionNumber != null ? `§${n.sectionNumber}` : `Node ${n.id}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Type</label>
+                      <select
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        value={crossMapForm.connectionType}
+                        onChange={(e) => setCrossMapForm((f) => f && ({ ...f, connectionType: e.target.value }))}
+                      >
+                        {['open', 'door', 'locked', 'secret', 'one_way', 'blocked'].map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!crossMapForm.destMapId || !crossMapForm.destNodeId}
+                        onClick={async () => {
+                          if (!crossMapForm.destMapId || !crossMapForm.destNodeId || !selectedNode) return
+                          const res = await fetch(`/api/maps/${activeMapId}/edges`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              fromNodeId: selectedNode.id,
+                              toNodeId: crossMapForm.destNodeId,
+                              targetMapId: crossMapForm.destMapId,
+                              connectionType: crossMapForm.connectionType,
+                            }),
+                          })
+                          if (res.ok) {
+                            const newEdge = (await res.json()) as MapEdge
+                            setEdges((prev) => [...prev, newEdge])
+                            setCrossMapForm(null)
+                          }
+                        }}
+                      >
+                        Create link
+                      </button>
+                      <button
+                        className="flex-1 px-3 py-2 border border-gray-300 hover:bg-gray-50 text-sm rounded text-gray-600"
+                        onClick={() => setCrossMapForm(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+
             return (
               <NodeDetailPanel
                 key={selectedNodeId}
                 node={selectedNode}
                 mapId={activeMapId}
-                onClose={() => setSelectedNodeId(null)}
+                onClose={() => {
+                  setCrossMapForm(null)
+                  setSelectedNodeId(null)
+                }}
                 onNodesChange={setNodes}
                 onAddConnectedNode={handleAddConnectedNodeFromPanel}
+                footer={crossMapFooter}
               />
             )
           })()}
