@@ -5,12 +5,12 @@ import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
 import { sessions, characters, maps } from '../../../lib/db/schema'
 
-function rollDice(count: number, sides: number, modifier: number): number {
+function rollDice(count: number, sides: number, modifier: number, multiplier = 1): number {
   let total = 0
   for (let i = 0; i < count; i++) {
     total += Math.floor(Math.random() * sides) + 1
   }
-  return total + modifier
+  return total * multiplier + modifier
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const initialStats: Record<string, number> = {}
     for (const stat of gameSystem.stats) {
       if (stat.initialDice) {
-        const rolled = rollDice(stat.initialDice.count, stat.initialDice.sides, stat.initialDice.modifier)
+        const rolled = rollDice(stat.initialDice.count, stat.initialDice.sides, stat.initialDice.modifier, stat.initialDice.multiplier)
         const max = stat.max ?? Infinity
         initialStats[stat.key] = Math.max(stat.min, Math.min(max, rolled))
       } else {

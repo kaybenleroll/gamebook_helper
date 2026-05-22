@@ -2,6 +2,7 @@ export interface DiceSpec {
   count: number
   sides: number
   modifier: number
+  multiplier?: number
 }
 
 export interface StatDefinition {

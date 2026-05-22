@@ -290,7 +290,7 @@ export const grailQuest: GameSystem = {
       label: 'Life Points',
       min: 0,
       max: 48,
-      initialDice: { count: 2, sides: 6, modifier: 0 },
+      initialDice: { count: 2, sides: 6, modifier: 0, multiplier: 4 },
     },
     {
       key: 'experiencePoints',
