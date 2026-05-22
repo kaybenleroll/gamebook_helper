@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import '../../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
+import { applyXpThreshold } from '../../../../../lib/game-systems/grail-quest'
 import { db } from '../../../../../lib/db'
 import { sessions, characters } from '../../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
+
+interface EquipmentItem {
+  name: string
+  value: number
+}
+
+type PatchBody =
+  | { stat: string; delta: number; equipment?: never }
+  | { equipment: 'weapon' | 'armour'; item: EquipmentItem; stat?: never; delta?: never }
 
 export async function PATCH(
   request: NextRequest,
@@ -16,11 +26,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
     }
 
-    const body = await request.json() as { stat?: unknown; delta?: unknown }
-    const { stat, delta } = body
-    if (!stat || typeof stat !== 'string' || typeof delta !== 'number') {
-      return NextResponse.json({ error: 'stat (string) and delta (number) are required' }, { status: 400 })
-    }
+    const body = await request.json() as Record<string, unknown>
 
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
@@ -35,11 +41,53 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unknown game system' }, { status: 500 })
     }
 
+    const currentStats = character.stats as Record<string, unknown>
+    const currentInitialStats = character.initialStats as Record<string, unknown>
+
+    // --- Equipment update branch ---
+    if (body.equipment !== undefined) {
+      const { equipment, item } = body as { equipment: unknown; item: unknown }
+      if (equipment !== 'weapon' && equipment !== 'armour') {
+        return NextResponse.json(
+          { error: 'equipment must be "weapon" or "armour"' },
+          { status: 400 },
+        )
+      }
+      if (
+        !item ||
+        typeof item !== 'object' ||
+        typeof (item as Record<string, unknown>).name !== 'string' ||
+        typeof (item as Record<string, unknown>).value !== 'number'
+      ) {
+        return NextResponse.json(
+          { error: 'item must be { name: string, value: number }' },
+          { status: 400 },
+        )
+      }
+      const newStats = { ...currentStats, [equipment]: item }
+      db.update(characters).set({ stats: newStats }).where(eq(characters.sessionId, sessionId)).run()
+      return NextResponse.json({ stats: newStats, initialStats: currentInitialStats })
+    }
+
+    // --- Stat adjustment branch ---
+    const { stat, delta } = body as { stat?: unknown; delta?: unknown }
+    if (!stat || typeof stat !== 'string' || typeof delta !== 'number') {
+      return NextResponse.json(
+        { error: 'stat (string) and delta (number) are required' },
+        { status: 400 },
+      )
+    }
+
     // Reject adjustments when game-over
-    const currentStatsForCheck = character.stats as Record<string, number>
-    const healthValue = currentStatsForCheck[gameSystem.primaryHealthStat] ?? 0
+    const healthValue =
+      typeof currentStats[gameSystem.primaryHealthStat] === 'number'
+        ? (currentStats[gameSystem.primaryHealthStat] as number)
+        : 0
     if (healthValue <= 0) {
-      return NextResponse.json({ error: 'Session is game over — stat adjustment not allowed' }, { status: 409 })
+      return NextResponse.json(
+        { error: 'Session is game over — stat adjustment not allowed' },
+        { status: 409 },
+      )
     }
 
     const statDef = gameSystem.stats.find((s) => s.key === stat)
@@ -47,13 +95,28 @@ export async function PATCH(
       return NextResponse.json({ error: `Unknown stat: ${stat}` }, { status: 400 })
     }
 
-    const currentValue = (character.stats as Record<string, number>)[stat] ?? statDef.min
-    const newValue = Math.max(statDef.min, Math.min(statDef.max ?? Infinity, currentValue + delta))
-    const newStats = { ...(character.stats as Record<string, number>), [stat]: newValue }
+    const currentValue =
+      typeof currentStats[stat] === 'number' ? (currentStats[stat] as number) : statDef.min
+    const newValue = Math.max(
+      statDef.min,
+      Math.min(statDef.max ?? Infinity, currentValue + delta),
+    )
+    let newStats = { ...currentStats, [stat]: newValue }
+    let newInitialStats = { ...currentInitialStats }
 
-    db.update(characters).set({ stats: newStats }).where(eq(characters.sessionId, sessionId)).run()
+    // Apply XP threshold logic for Grail Quest
+    if (session.gameSystemId === 'grail-quest' && stat === 'experiencePoints') {
+      const result = applyXpThreshold(newStats, newInitialStats)
+      newStats = result.stats
+      newInitialStats = result.initialStats
+    }
 
-    return NextResponse.json({ stats: newStats })
+    db.update(characters)
+      .set({ stats: newStats, initialStats: newInitialStats })
+      .where(eq(characters.sessionId, sessionId))
+      .run()
+
+    return NextResponse.json({ stats: newStats, initialStats: newInitialStats })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

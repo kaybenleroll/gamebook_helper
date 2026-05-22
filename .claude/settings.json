@@ -51,7 +51,10 @@
       "Bash(grep *)",
       "Bash(sed *)",
       "Bash(sort*)",
-      "Bash(sleep *)"
+      "Bash(sleep *)",
+      "Bash(find *)",
+      "Bash(xargs *)",
+      "Bash(command rm -f *)"
     ]
   }
 }

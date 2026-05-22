@@ -2,17 +2,44 @@
 
 import { useState } from 'react'
 import type { StatDefinition } from '../../../lib/game-systems/types'
+import { xpThresholdProgress } from '../../../lib/game-systems/grail-quest'
+
+interface EquipmentItem {
+  name: string
+  value: number
+}
 
 interface Props {
   sessionId: number
-  stats: Record<string, number>
-  initialStats: Record<string, number>
+  stats: Record<string, unknown>
+  initialStats: Record<string, unknown>
   statDefs: StatDefinition[]
+  gameSystemId: string
   isGameOver?: boolean
 }
 
-export default function CharacterSheet({ sessionId, stats: initialCurrentStats, initialStats, statDefs, isGameOver = false }: Props) {
+export default function CharacterSheet({
+  sessionId,
+  stats: initialCurrentStats,
+  initialStats,
+  statDefs,
+  gameSystemId,
+  isGameOver = false,
+}: Props) {
   const [currentStats, setCurrentStats] = useState(initialCurrentStats)
+  const [currentInitialStats, setCurrentInitialStats] = useState(initialStats)
+
+  // Weapon form state
+  const equippedWeapon = currentStats['weapon'] as EquipmentItem | undefined
+  const equippedArmour = currentStats['armour'] as EquipmentItem | undefined
+  const [weaponName, setWeaponName] = useState(equippedWeapon?.name ?? '')
+  const [weaponDamage, setWeaponDamage] = useState(
+    equippedWeapon?.value !== undefined ? String(equippedWeapon.value) : '',
+  )
+  const [armourName, setArmourName] = useState(equippedArmour?.name ?? '')
+  const [armourReduction, setArmourReduction] = useState(
+    equippedArmour?.value !== undefined ? String(equippedArmour.value) : '',
+  )
 
   async function adjust(stat: string, delta: number) {
     const res = await fetch(`/api/sessions/${sessionId}/character`, {
@@ -21,10 +48,30 @@ export default function CharacterSheet({ sessionId, stats: initialCurrentStats, 
       body: JSON.stringify({ stat, delta }),
     })
     if (res.ok) {
-      const data = await res.json() as { stats: Record<string, number> }
+      const data = (await res.json()) as {
+        stats: Record<string, unknown>
+        initialStats: Record<string, unknown>
+      }
+      setCurrentStats(data.stats)
+      if (data.initialStats) setCurrentInitialStats(data.initialStats)
+    }
+  }
+
+  async function saveEquipment(slot: 'weapon' | 'armour', name: string, value: string) {
+    const numValue = parseInt(value, 10)
+    if (!name.trim() || isNaN(numValue)) return
+    const res = await fetch(`/api/sessions/${sessionId}/character`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ equipment: slot, item: { name: name.trim(), value: numValue } }),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { stats: Record<string, unknown> }
       setCurrentStats(data.stats)
     }
   }
+
+  const isGrailQuest = gameSystemId === 'grail-quest'
 
   return (
     <section>
@@ -39,9 +86,21 @@ export default function CharacterSheet({ sessionId, stats: initialCurrentStats, 
         </thead>
         <tbody>
           {statDefs.map((stat) => {
-            const current = currentStats[stat.key] ?? stat.min
+            const current =
+              typeof currentStats[stat.key] === 'number'
+                ? (currentStats[stat.key] as number)
+                : stat.min
+            const startingMax =
+              typeof currentInitialStats[stat.key] === 'number'
+                ? (currentInitialStats[stat.key] as number)
+                : stat.min
             const atMin = current <= stat.min
-            const atMax = stat.max !== undefined && current >= stat.max
+            // For stats with a hard max (e.g. LP), cap at min(hardMax, initialStats value).
+            // For stats with no hard max (e.g. XP), there is no cap.
+            const atMax =
+              stat.max !== undefined
+                ? current >= Math.min(stat.max, startingMax)
+                : false
             return (
               <tr key={stat.key} className="border-b last:border-0">
                 <td className="py-2 pr-4">{stat.label}</td>
@@ -65,15 +124,83 @@ export default function CharacterSheet({ sessionId, stats: initialCurrentStats, 
                       +
                     </button>
                   </div>
+                  {isGrailQuest && stat.key === 'experiencePoints' && (
+                    <div className="text-xs text-gray-500 text-center mt-1">
+                      {(() => {
+                        const { progress, threshold } = xpThresholdProgress(current)
+                        return `${progress} / ${threshold} XP to next LP`
+                      })()}
+                    </div>
+                  )}
                 </td>
                 <td className="py-2 text-right font-mono text-gray-500">
-                  {initialStats[stat.key] ?? stat.min}
+                  {stat.max !== undefined ? startingMax : '—'}
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+
+      {isGrailQuest && (
+        <div className="mt-4 max-w-md space-y-3">
+          {/* Equipped weapon */}
+          <div className="flex items-center gap-2">
+            <span className="w-32 text-sm font-medium shrink-0">Equipped weapon</span>
+            <input
+              type="text"
+              value={weaponName}
+              onChange={(e) => setWeaponName(e.target.value)}
+              placeholder="Name"
+              className="border rounded px-2 py-1 text-sm flex-1 min-w-0"
+              aria-label="Weapon name"
+            />
+            <input
+              type="number"
+              value={weaponDamage}
+              onChange={(e) => setWeaponDamage(e.target.value)}
+              placeholder="Dmg"
+              className="border rounded px-2 py-1 text-sm w-16 shrink-0"
+              aria-label="Weapon damage"
+            />
+            <button
+              onClick={() => saveEquipment('weapon', weaponName, weaponDamage)}
+              disabled={!weaponName.trim() || weaponDamage === ''}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
+
+          {/* Equipped armour */}
+          <div className="flex items-center gap-2">
+            <span className="w-32 text-sm font-medium shrink-0">Equipped armour</span>
+            <input
+              type="text"
+              value={armourName}
+              onChange={(e) => setArmourName(e.target.value)}
+              placeholder="Name"
+              className="border rounded px-2 py-1 text-sm flex-1 min-w-0"
+              aria-label="Armour name"
+            />
+            <input
+              type="number"
+              value={armourReduction}
+              onChange={(e) => setArmourReduction(e.target.value)}
+              placeholder="DR"
+              className="border rounded px-2 py-1 text-sm w-16 shrink-0"
+              aria-label="Armour damage reduction"
+            />
+            <button
+              onClick={() => saveEquipment('armour', armourName, armourReduction)}
+              disabled={!armourName.trim() || armourReduction === ''}
+              className="px-3 py-1 text-sm border rounded disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

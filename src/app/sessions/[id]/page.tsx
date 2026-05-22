@@ -32,8 +32,8 @@ export default async function SessionPage({
     return notFound()
   }
 
-  const stats = character.stats as Record<string, number>
-  const isGameOver = (stats[gameSystem.primaryHealthStat] ?? 0) <= 0
+  const stats = character.stats as Record<string, unknown>
+  const isGameOver = ((stats[gameSystem.primaryHealthStat] as number | undefined) ?? 0) <= 0
 
   const sectionHistory = db
     .select()
@@ -76,8 +76,9 @@ export default async function SessionPage({
       <CharacterSheet
         sessionId={sessionId}
         stats={stats}
-        initialStats={character.initialStats as Record<string, number>}
+        initialStats={character.initialStats as Record<string, unknown>}
         statDefs={gameSystem.stats}
+        gameSystemId={session.gameSystemId}
         isGameOver={isGameOver}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
