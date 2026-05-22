@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
+import NodeDetailPanel from './map/NodeDetailPanel'
 
 interface MapEntry {
   id: number
@@ -44,6 +45,9 @@ export default function MapGrid({ sessionId }: Props) {
   // Node state for the active map
   const [nodes, setNodes] = useState<MapNode[]>([])
 
+  // Selection state — which node (by id) has the detail panel open
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null)
+
   const activeMapId = searchParams.get('mapId') ? parseInt(searchParams.get('mapId')!, 10) : null
 
   const fetchMaps = useCallback(async () => {
@@ -65,6 +69,8 @@ export default function MapGrid({ sessionId }: Props) {
   }, [fetchMaps])
 
   useEffect(() => {
+    setSelectedNodeId(null)
+
     if (!activeMapId) {
       setNodes([])
       return
@@ -289,14 +295,35 @@ export default function MapGrid({ sessionId }: Props) {
           </button>
         </div>
       ) : activeMapId ? (
-        <div className="mt-4 border border-gray-200 rounded overflow-hidden" style={{ height: 520 }}>
-          <SvgCanvas
-            nodes={nodes}
-            nodeBounds={deriveNodeBounds(nodes)}
-            onBackgroundClick={(worldX, worldY) => {
-              console.debug('Canvas click at world', worldX.toFixed(1), worldY.toFixed(1))
-            }}
-          />
+        <div
+          className="mt-4 border border-gray-200 rounded overflow-hidden flex"
+          style={{ height: 520 }}
+        >
+          <div className="flex-1 min-w-0">
+            <SvgCanvas
+              nodes={nodes}
+              nodeBounds={deriveNodeBounds(nodes)}
+              onBackgroundClick={() => setSelectedNodeId(null)}
+              onNodeClick={(index) => {
+                const node = nodes[index]
+                if (node) setSelectedNodeId(node.id)
+              }}
+            />
+          </div>
+
+          {selectedNodeId !== null && (() => {
+            const selectedNode = nodes.find((n) => n.id === selectedNodeId)
+            if (!selectedNode) return null
+            return (
+              <NodeDetailPanel
+                key={selectedNodeId}
+                node={selectedNode}
+                mapId={activeMapId}
+                onClose={() => setSelectedNodeId(null)}
+                onNodesChange={setNodes}
+              />
+            )
+          })()}
         </div>
       ) : (
         <div className="mt-4 p-4 border border-gray-200 rounded text-gray-500">
