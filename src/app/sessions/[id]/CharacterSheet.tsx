@@ -8,9 +8,10 @@ interface Props {
   stats: Record<string, number>
   initialStats: Record<string, number>
   statDefs: StatDefinition[]
+  isGameOver?: boolean
 }
 
-export default function CharacterSheet({ sessionId, stats: initialCurrentStats, initialStats, statDefs }: Props) {
+export default function CharacterSheet({ sessionId, stats: initialCurrentStats, initialStats, statDefs, isGameOver = false }: Props) {
   const [currentStats, setCurrentStats] = useState(initialCurrentStats)
 
   async function adjust(stat: string, delta: number) {
@@ -48,7 +49,7 @@ export default function CharacterSheet({ sessionId, stats: initialCurrentStats, 
                   <div className="flex items-center justify-center gap-2">
                     <button
                       onClick={() => adjust(stat.key, -1)}
-                      disabled={atMin}
+                      disabled={isGameOver || atMin}
                       className="w-7 h-7 rounded border font-bold disabled:opacity-40"
                       aria-label={`Decrease ${stat.label}`}
                     >
@@ -57,7 +58,7 @@ export default function CharacterSheet({ sessionId, stats: initialCurrentStats, 
                     <span className="font-mono w-8 text-center">{current}</span>
                     <button
                       onClick={() => adjust(stat.key, +1)}
-                      disabled={atMax}
+                      disabled={isGameOver || atMax}
                       className="w-7 h-7 rounded border font-bold disabled:opacity-40"
                       aria-label={`Increase ${stat.label}`}
                     >
