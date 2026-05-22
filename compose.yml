@@ -1,0 +1,17 @@
+services:
+  gamebook-app:
+    build: .
+    container_name: gamebook-app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - gamebook_db:/app/data
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: /app/data/gamebook.db
+
+volumes:
+  gamebook_db:
