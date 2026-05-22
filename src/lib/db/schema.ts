@@ -192,3 +192,20 @@ export const sectionVisits = sqliteTable(
   },
   (t) => [index('section_visits_session_id_idx').on(t.sessionId)],
 )
+
+export const inventoryItems = sqliteTable(
+  'inventory_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    name: text('name').notNull(),
+    quantity: integer('quantity').notNull().default(1),
+    isSpecial: integer('is_special', { mode: 'boolean' }).notNull().default(false),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index('inventory_items_session_id_idx').on(t.sessionId)],
+)
