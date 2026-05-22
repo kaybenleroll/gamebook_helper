@@ -77,6 +77,16 @@ export default async function SessionPage({
       return new Date((v as number) * 1000).toISOString()
     }
 
+    const availableRoundOptions =
+      activeCombat.outcome === 'in_progress' && gameSystem.combat
+        ? gameSystem.combat.roundOptions({
+            enemyStats: activeCombat.enemyStats,
+            enemyState: activeCombat.enemyState,
+            metadata: activeCombat.metadata,
+            characterStats: stats,
+          })
+        : []
+
     activeCombatWithRounds = {
       id: activeCombat.id,
       sessionId: activeCombat.sessionId,
@@ -87,6 +97,7 @@ export default async function SessionPage({
       outcome: activeCombat.outcome,
       startedAt: formatTs(activeCombat.startedAt)!,
       endedAt: formatTs(activeCombat.endedAt),
+      availableRoundOptions,
       rounds: rounds.map((r) => ({
         id: r.id,
         roundNumber: r.roundNumber,
@@ -126,7 +137,9 @@ export default async function SessionPage({
         gameSystemId={session.gameSystemId}
         isGameOver={isGameOver}
         initialCombat={activeCombatWithRounds}
-        combatModule={gameSystem.combat ?? null}
+        enemyStatFields={gameSystem.combat?.enemyStatFields ?? null}
+        primaryHealthStat={gameSystem.primaryHealthStat}
+        primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
       <SectionTracker

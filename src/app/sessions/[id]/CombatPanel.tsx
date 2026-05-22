@@ -24,17 +24,20 @@ interface CombatData {
   outcome: string
   startedAt: string
   endedAt: string | null
+  availableRoundOptions?: RoundOption[]
   rounds: CombatRound[]
 }
 
 interface Props {
   sessionId: number
   initialCombat: CombatData | null
-  combatModule: CombatModule
+  enemyStatFields: CombatModule['enemyStatFields']
   characterStats: Record<string, unknown>
   initialStats: Record<string, unknown>
   isGameOver: boolean
   onStatsChange: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
+  primaryHealthStat: string
+  primaryEnemyHealthStat: string
 }
 
 interface EnemyFormState {
@@ -82,11 +85,13 @@ function RoundLogEntry({ round }: { round: CombatRound }) {
 export default function CombatPanel({
   sessionId,
   initialCombat,
-  combatModule,
+  enemyStatFields,
   characterStats,
   initialStats,
   isGameOver,
   onStatsChange,
+  primaryHealthStat,
+  primaryEnemyHealthStat,
 }: Props) {
   const [combat, setCombat] = useState<CombatData | null>(initialCombat)
   const [showStartForm, setShowStartForm] = useState(false)
@@ -124,7 +129,7 @@ export default function CombatPanel({
     try {
       // Convert form values to correct types
       const payload: Record<string, unknown> = {}
-      for (const field of combatModule.enemyStatFields) {
+      for (const field of enemyStatFields) {
         const raw = enemyForm[field.key] ?? ''
         if (field.type === 'number') {
           const n = parseFloat(raw)
@@ -174,7 +179,7 @@ export default function CombatPanel({
       if (res.ok) {
         const data = (await res.json()) as {
           round: CombatRound
-          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null }
+          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null; availableRoundOptions?: RoundOption[] }
           characterStats: Record<string, unknown>
           characterInitialStats: Record<string, unknown>
           xpPrompt?: boolean
@@ -187,6 +192,7 @@ export default function CombatPanel({
             enemyState: data.combat.enemyState,
             outcome: data.combat.outcome,
             endedAt: data.combat.endedAt,
+            availableRoundOptions: data.combat.availableRoundOptions,
             rounds: [...prev.rounds, data.round],
           }
         })
@@ -254,7 +260,7 @@ export default function CombatPanel({
       if (res.ok) {
         const data = (await res.json()) as {
           round: CombatRound
-          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null }
+          combat: { id: number; outcome: string; enemyState: Record<string, unknown>; endedAt: string | null; availableRoundOptions?: RoundOption[] }
           characterStats: Record<string, unknown>
           characterInitialStats: Record<string, unknown>
           xpPrompt?: boolean
@@ -266,6 +272,7 @@ export default function CombatPanel({
             enemyState: data.combat.enemyState,
             outcome: data.combat.outcome,
             endedAt: data.combat.endedAt,
+            availableRoundOptions: data.combat.availableRoundOptions,
             rounds: [...prev.rounds, data.round],
           }
         })
@@ -325,26 +332,25 @@ export default function CombatPanel({
   // ---- Helpers ----
 
   const activeCombatOptions: RoundOption[] = combat?.outcome === 'in_progress'
-    ? combatModule.roundOptions({
-        enemyStats: combat.enemyStats,
-        enemyState: combat.enemyState,
-        metadata: combat.metadata,
-        characterStats,
-      })
+    ? (combat.availableRoundOptions ?? [])
     : []
 
-  const enemyCurrentStamina =
-    typeof (combat?.enemyState as Record<string, unknown> | undefined)?.['currentStamina'] === 'number'
-      ? ((combat!.enemyState as Record<string, unknown>)['currentStamina'] as number)
+  const enemyHpKey = primaryEnemyHealthStat
+  const enemyCurrentHpKey = 'current' + primaryEnemyHealthStat.charAt(0).toUpperCase() + primaryEnemyHealthStat.slice(1)
+  const enemyCurrentHp =
+    typeof (combat?.enemyState as Record<string, unknown> | undefined)?.[enemyCurrentHpKey] === 'number'
+      ? ((combat!.enemyState as Record<string, unknown>)[enemyCurrentHpKey] as number)
       : 0
-  const enemyMaxStamina =
-    typeof (combat?.enemyStats as Record<string, unknown> | undefined)?.['stamina'] === 'number'
-      ? ((combat!.enemyStats as Record<string, unknown>)['stamina'] as number)
+  const enemyMaxHp =
+    typeof (combat?.enemyStats as Record<string, unknown> | undefined)?.[enemyHpKey] === 'number'
+      ? ((combat!.enemyStats as Record<string, unknown>)[enemyHpKey] as number)
       : 0
-  const playerCurrentLp =
-    typeof characterStats['lifePoints'] === 'number' ? (characterStats['lifePoints'] as number) : 0
-  const playerMaxLp =
-    typeof initialStats['lifePoints'] === 'number' ? (initialStats['lifePoints'] as number) : 0
+  const playerCurrentHp =
+    typeof characterStats[primaryHealthStat] === 'number' ? (characterStats[primaryHealthStat] as number) : 0
+  const playerMaxHp =
+    typeof initialStats[primaryHealthStat] === 'number' ? (initialStats[primaryHealthStat] as number) : 0
+  const totalDamageDealt = combat ? combat.rounds.reduce((sum, r) => sum + r.damageDealt, 0) : 0
+  const totalDamageTaken = combat ? combat.rounds.reduce((sum, r) => sum + r.damageTaken, 0) : 0
 
   // ---- Render states ----
 
@@ -406,7 +412,7 @@ export default function CombatPanel({
           ) : (
             <div className="border rounded p-4 max-w-md">
               <h3 className="font-semibold mb-3">New fight</h3>
-              {combatModule.enemyStatFields.map((field) => (
+              {enemyStatFields.map((field) => (
                 <div key={field.key} className="flex items-center gap-2 mb-2">
                   <label className="w-28 text-sm shrink-0">
                     {field.label}
@@ -451,9 +457,15 @@ export default function CombatPanel({
 
           {/* HP bars */}
           <div className="mb-4">
-            <HpBar current={enemyCurrentStamina} max={enemyMaxStamina} label={`${combat.enemyName} Stamina`} />
-            <HpBar current={playerCurrentLp} max={playerMaxLp} label="Your Life Points" />
+            <HpBar current={enemyCurrentHp} max={enemyMaxHp} label={`${combat.enemyName} ${enemyStatFields.find(f => f.key === primaryEnemyHealthStat)?.label ?? primaryEnemyHealthStat}`} />
+            <HpBar current={playerCurrentHp} max={playerMaxHp} label="Your Life Points" />
           </div>
+          {combat.rounds.length > 0 && (
+            <div className="mb-4 text-sm text-gray-600 flex gap-6">
+              <span>Damage dealt: <strong>{totalDamageDealt}</strong></span>
+              <span>Damage taken: <strong>{totalDamageTaken}</strong></span>
+            </div>
+          )}
 
           {/* Round form — only if no pending result to commit */}
           {!pendingResult && (
@@ -638,6 +650,12 @@ export default function CombatPanel({
                   <RoundLogEntry key={r.id} round={r} />
                 ))}
               </div>
+            </div>
+          )}
+          {combat.rounds.length > 0 && (
+            <div className="mb-4 text-sm text-gray-600 flex gap-6">
+              <span>Damage dealt: <strong>{totalDamageDealt}</strong></span>
+              <span>Damage taken: <strong>{totalDamageTaken}</strong></span>
             </div>
           )}
 

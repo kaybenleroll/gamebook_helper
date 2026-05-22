@@ -92,13 +92,13 @@ export async function POST(
     let finalEnemyState = result.enemyState as Record<string, unknown>
     if (typeof overrides.damageDealt === 'number') {
       const originalEnemyState = combat.enemyState as Record<string, unknown>
-      const currentStamina =
-        typeof originalEnemyState['currentStamina'] === 'number'
-          ? (originalEnemyState['currentStamina'] as number)
+      const currentLifePoints =
+        typeof originalEnemyState['currentLifePoints'] === 'number'
+          ? (originalEnemyState['currentLifePoints'] as number)
           : 0
       finalEnemyState = {
         ...finalEnemyState,
-        currentStamina: Math.max(0, currentStamina - overrides.damageDealt),
+        currentLifePoints: Math.max(0, currentLifePoints - overrides.damageDealt),
       }
     }
 
@@ -110,8 +110,8 @@ export async function POST(
 
     // Recalculate outcome with final values
     const enemyCurrentStamina =
-      typeof finalEnemyState['currentStamina'] === 'number'
-        ? (finalEnemyState['currentStamina'] as number)
+      typeof finalEnemyState['currentLifePoints'] === 'number'
+        ? (finalEnemyState['currentLifePoints'] as number)
         : 0
     const playerCurrentLp =
       typeof characterStats['lifePoints'] === 'number'
@@ -213,6 +213,16 @@ export async function POST(
       )
       .get()!
 
+    const availableRoundOptions =
+      updatedCombat.outcome === 'in_progress' && gameSystem.combat
+        ? gameSystem.combat.roundOptions({
+            enemyStats: updatedCombat.enemyStats,
+            enemyState: finalEnemyState,
+            metadata: updatedCombat.metadata,
+            characterStats: newStats,
+          })
+        : undefined
+
     return NextResponse.json(
       {
         round: {
@@ -228,6 +238,7 @@ export async function POST(
           outcome: updatedCombat.outcome,
           enemyState: updatedCombat.enemyState,
           endedAt: formatTs(updatedCombat.endedAt),
+          ...(availableRoundOptions !== undefined ? { availableRoundOptions } : {}),
         },
         characterStats: newStats,
         characterInitialStats: newInitialStats,

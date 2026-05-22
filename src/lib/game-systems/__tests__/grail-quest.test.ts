@@ -24,7 +24,7 @@ describe('grailQuest system definition', () => {
     expect(lifePoints).toBeDefined()
     expect(lifePoints!.min).toBe(0)
     expect(lifePoints!.max).toBe(48)
-    expect(lifePoints!.initialDice).toEqual({ count: 2, sides: 6, modifier: 0 })
+    expect(lifePoints!.initialDice).toEqual({ count: 2, sides: 6, modifier: 0, multiplier: 4, bestOf: 3 })
   })
 
   it('defines experiencePoints starting at 0 with no upper bound', () => {
