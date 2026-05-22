@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useOptimisticMutation } from '../../../lib/useOptimisticMutation'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
 import NodeDetailPanel from './map/NodeDetailPanel'
@@ -228,6 +229,22 @@ export default function MapGrid({ sessionId }: Props) {
       console.error('Failed to delete edge:', err)
       setEdges(previous)
     }
+  }
+
+  const mutateNodes = useOptimisticMutation(setNodes)
+
+  async function handleNodeDragEnd(nodeId: number, x: number, y: number) {
+    await mutateNodes(
+      (prev) => prev.map((n) => (n.id === nodeId ? { ...n, x, y } : n)),
+      async () => {
+        const res = await fetch(`/api/maps/${activeMapId}/nodes/${nodeId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x, y }),
+        })
+        if (!res.ok) throw new Error('Failed to update node position')
+      },
+    )
   }
 
   const handleBackgroundClick = useCallback((worldX: number, worldY: number) => {
@@ -459,6 +476,7 @@ export default function MapGrid({ sessionId }: Props) {
               edges={edges}
               nodeBounds={deriveNodeBounds(nodes)}
               onBackgroundClick={handleBackgroundClick}
+              onNodeDragEnd={(nodeId, x, y) => void handleNodeDragEnd(nodeId, x, y)}
               onNodeClick={(index) => {
                 const node = nodes[index]
                 if (node) {
