@@ -89,6 +89,7 @@ export default function SessionClient({
         initialStats={currentInitialStats}
         statDefs={statDefs}
         gameSystemId={gameSystemId}
+        primaryHealthStat={primaryHealthStat}
         isGameOver={isGameOver}
         onStatsChange={handleStatsChange}
       />

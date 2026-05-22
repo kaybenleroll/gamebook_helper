@@ -15,6 +15,7 @@ interface Props {
   initialStats: Record<string, unknown>
   statDefs: StatDefinition[]
   gameSystemId: string
+  primaryHealthStat: string
   isGameOver?: boolean
   onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
 }
@@ -25,11 +26,15 @@ export default function CharacterSheet({
   initialStats,
   statDefs,
   gameSystemId,
+  primaryHealthStat,
   isGameOver = false,
   onStatsChange,
 }: Props) {
   const [currentStats, setCurrentStats] = useState(initialCurrentStats)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialStats)
+  const [statInputs, setStatInputs] = useState<Record<string, string>>({})
+  const [initialStatInputs, setInitialStatInputs] = useState<Record<string, string>>({})
+  const [showGameOverModal, setShowGameOverModal] = useState(false)
 
   // Weapon form state
   const equippedWeapon = currentStats['weapon'] as EquipmentItem | undefined
@@ -43,11 +48,12 @@ export default function CharacterSheet({
     equippedArmour?.value !== undefined ? String(equippedArmour.value) : '',
   )
 
-  async function adjust(stat: string, delta: number) {
+  async function patchCharacter(payload: Record<string, unknown>) {
+    const wasGameOver = ((currentStats[primaryHealthStat] as number | undefined) ?? 1) <= 0
     const res = await fetch(`/api/sessions/${sessionId}/character`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stat, delta }),
+      body: JSON.stringify(payload),
     })
     if (res.ok) {
       const data = (await res.json()) as {
@@ -57,6 +63,29 @@ export default function CharacterSheet({
       setCurrentStats(data.stats)
       if (data.initialStats) setCurrentInitialStats(data.initialStats)
       onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
+      const nowGameOver = ((data.stats[primaryHealthStat] as number | undefined) ?? 1) <= 0
+      if (!wasGameOver && nowGameOver) setShowGameOverModal(true)
+    }
+  }
+
+  function adjust(stat: string, delta: number) {
+    return patchCharacter({ stat, delta })
+  }
+
+  function parseAndApply(statKey: string, input: string, target: 'current' | 'initial') {
+    const trimmed = input.trim()
+    if (!trimmed) return
+    if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
+      const delta = Number(trimmed)
+      if (!isNaN(delta)) patchCharacter({ stat: statKey, delta, target })
+    } else {
+      const value = Number(trimmed)
+      if (!isNaN(value)) patchCharacter({ stat: statKey, value, target })
+    }
+    if (target === 'current') {
+      setStatInputs((prev) => ({ ...prev, [statKey]: '' }))
+    } else {
+      setInitialStatInputs((prev) => ({ ...prev, [statKey]: '' }))
     }
   }
 
@@ -109,7 +138,15 @@ export default function CharacterSheet({
               <tr key={stat.key} className="border-b last:border-0">
                 <td className="py-2 pr-4">{stat.label}</td>
                 <td className="py-2 pr-4">
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center gap-1">
+                    <button
+                      onClick={() => adjust(stat.key, -5)}
+                      disabled={isGameOver || atMin}
+                      className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
+                      aria-label={`Decrease ${stat.label} by 5`}
+                    >
+                      −5
+                    </button>
                     <button
                       onClick={() => adjust(stat.key, -1)}
                       disabled={isGameOver || atMin}
@@ -127,6 +164,35 @@ export default function CharacterSheet({
                     >
                       +
                     </button>
+                    <button
+                      onClick={() => adjust(stat.key, +5)}
+                      disabled={isGameOver || atMax}
+                      className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
+                      aria-label={`Increase ${stat.label} by 5`}
+                    >
+                      +5
+                    </button>
+                    <input
+                      type="text"
+                      value={statInputs[stat.key] ?? ''}
+                      onChange={(e) =>
+                        setStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')
+                      }}
+                      placeholder="+5 / 32"
+                      className="w-16 border rounded px-1 py-0.5 text-sm font-mono"
+                      aria-label={`Set ${stat.label}`}
+                    />
+                    <button
+                      onClick={() => parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')}
+                      disabled={!(statInputs[stat.key] ?? '').trim()}
+                      className="px-2 py-0.5 text-sm border rounded disabled:opacity-40"
+                      aria-label={`Apply ${stat.label} change`}
+                    >
+                      Apply
+                    </button>
                   </div>
                   {isGrailQuest && stat.key === 'experiencePoints' && (
                     <div className="text-xs text-gray-500 text-center mt-1">
@@ -138,7 +204,37 @@ export default function CharacterSheet({
                   )}
                 </td>
                 <td className="py-2 text-right font-mono text-gray-500">
-                  {stat.max !== undefined ? startingMax : '—'}
+                  {stat.max !== undefined ? (
+                    <div className="flex items-center justify-end gap-1">
+                      <span>{startingMax}</span>
+                      <input
+                        type="text"
+                        value={initialStatInputs[stat.key] ?? ''}
+                        onChange={(e) =>
+                          setInitialStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter')
+                            parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                        }}
+                        placeholder="+5 / 32"
+                        className="w-16 border rounded px-1 py-0.5 text-sm font-mono text-left"
+                        aria-label={`Set starting ${stat.label}`}
+                      />
+                      <button
+                        onClick={() =>
+                          parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                        }
+                        disabled={!(initialStatInputs[stat.key] ?? '').trim()}
+                        className="px-2 py-0.5 text-sm border rounded disabled:opacity-40"
+                        aria-label={`Apply starting ${stat.label} change`}
+                      >
+                        Set
+                      </button>
+                    </div>
+                  ) : (
+                    '—'
+                  )}
                 </td>
               </tr>
             )
@@ -201,6 +297,22 @@ export default function CharacterSheet({
               className="px-3 py-1 text-sm border rounded disabled:opacity-40"
             >
               Save
+            </button>
+          </div>
+        </div>
+      )}
+      {showGameOverModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+            <h2 className="text-xl font-bold text-red-700 mb-3">Game Over</h2>
+            <p className="text-gray-700 mb-6">
+              Your Life Points have reached zero — your adventure is over.
+            </p>
+            <button
+              onClick={() => setShowGameOverModal(false)}
+              className="px-6 py-2 bg-red-700 text-white rounded font-semibold hover:bg-red-800"
+            >
+              OK
             </button>
           </div>
         </div>
