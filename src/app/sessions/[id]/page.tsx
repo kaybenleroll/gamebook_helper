@@ -6,6 +6,7 @@ import { db } from '../../../lib/db'
 import { sessions, characters } from '../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
 import CharacterSheet from './CharacterSheet'
+import DiceRoller from './DiceRoller'
 
 export default async function SessionPage({
   params,
@@ -29,6 +30,9 @@ export default async function SessionPage({
     return notFound()
   }
 
+  const stats = character.stats as Record<string, number>
+  const isGameOver = (stats[gameSystem.primaryHealthStat] ?? 0) <= 0
+
   return (
     <main className="p-8">
       <div className="mb-6">
@@ -39,12 +43,24 @@ export default async function SessionPage({
         <p className="text-gray-500">{gameSystem.name}</p>
       </div>
 
+      {isGameOver && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded">
+          <p className="font-bold text-red-700 text-lg">Game Over</p>
+          <p className="text-red-600 mt-1">Your adventure has ended.</p>
+          <Link href="/sessions/new" className="inline-block mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+            Start new adventure
+          </Link>
+        </div>
+      )}
+
       <CharacterSheet
         sessionId={sessionId}
-        stats={character.stats as Record<string, number>}
+        stats={stats}
         initialStats={character.initialStats as Record<string, number>}
         statDefs={gameSystem.stats}
+        isGameOver={isGameOver}
       />
+      <DiceRoller defaultDice={gameSystem.defaultDice} />
     </main>
   )
 }
