@@ -34,3 +34,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local scratch space (ephemeral, never commit)
+.scratch/
+# bootstrap template (one-time setup artefact)
+gamebook-bootstrap/
