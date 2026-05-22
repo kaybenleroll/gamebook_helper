@@ -12,8 +12,9 @@ interface EquipmentItem {
 }
 
 type PatchBody =
-  | { stat: string; delta: number; equipment?: never }
-  | { equipment: 'weapon' | 'armour'; item: EquipmentItem; stat?: never; delta?: never }
+  | { stat: string; delta: number; equipment?: never; clearCreationRolls?: never }
+  | { equipment: 'weapon' | 'armour'; item: EquipmentItem; stat?: never; delta?: never; clearCreationRolls?: never }
+  | { clearCreationRolls: true; stat?: never; delta?: never; equipment?: never }
 
 export async function PATCH(
   request: NextRequest,
@@ -43,6 +44,15 @@ export async function PATCH(
 
     const currentStats = character.stats as Record<string, unknown>
     const currentInitialStats = character.initialStats as Record<string, unknown>
+
+    // --- Clear creation rolls branch ---
+    if ((body as Record<string, unknown>).clearCreationRolls === true) {
+      db.update(characters)
+        .set({ creationRolls: null })
+        .where(eq(characters.sessionId, sessionId))
+        .run()
+      return new NextResponse(null, { status: 204 })
+    }
 
     // --- Equipment update branch ---
     if (body.equipment !== undefined) {

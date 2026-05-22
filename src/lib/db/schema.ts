@@ -1,6 +1,16 @@
 import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
+export type RollAttempt = { dice: number[]; total: number }
+export type StatRollDetail = {
+  attempts: RollAttempt[]
+  best: number
+  multiplier: number
+  result: number
+  statLabel: string
+}
+export type CreationRolls = Record<string, StatRollDetail>
+
 export const combatOutcomeEnum = [
   'in_progress',
   'player_won',
@@ -34,6 +44,9 @@ export const characters = sqliteTable(
     initialStats: text('initial_stats', { mode: 'json' })
       .$type<Record<string, unknown>>()
       .notNull(),
+    creationRolls: text('creation_rolls', { mode: 'json' })
+      .$type<CreationRolls | null>()
+      .default(null),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

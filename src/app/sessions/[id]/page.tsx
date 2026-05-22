@@ -4,6 +4,7 @@ import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
 import { sessions, characters, sectionVisits, combats, combatRounds } from '../../../lib/db/schema'
+import type { CreationRolls } from '../../../lib/db/schema'
 import { eq, asc, desc } from 'drizzle-orm'
 import SessionClient from './SessionClient'
 import DiceRoller from './DiceRoller'
@@ -140,6 +141,7 @@ export default async function SessionPage({
         enemyStatFields={gameSystem.combat?.enemyStatFields ?? null}
         primaryHealthStat={gameSystem.primaryHealthStat}
         primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
+        creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
       />
       <DiceRoller defaultDice={gameSystem.defaultDice} />
       <SectionTracker

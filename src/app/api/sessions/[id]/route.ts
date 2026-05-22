@@ -43,6 +43,7 @@ export async function GET(
       character: {
         stats: character.stats,
         initialStats: character.initialStats,
+        creationRolls: character.creationRolls ?? null,
       },
       gameSystem: {
         stats: gameSystem.stats.map((s) => ({ key: s.key, label: s.label })),
