@@ -5,12 +5,19 @@ import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
 import { sessions, characters, maps } from '../../../lib/db/schema'
 
-function rollDice(count: number, sides: number, modifier: number, multiplier = 1): number {
+function rollOnce(count: number, sides: number): number {
   let total = 0
   for (let i = 0; i < count; i++) {
     total += Math.floor(Math.random() * sides) + 1
   }
-  return total * multiplier + modifier
+  return total
+}
+
+function rollDice(count: number, sides: number, modifier: number, multiplier = 1, bestOf?: number, worstOf?: number): number {
+  const attempts = bestOf ?? worstOf ?? 1
+  const rolls = Array.from({ length: attempts }, () => rollOnce(count, sides))
+  const base = worstOf != null ? Math.min(...rolls) : Math.max(...rolls)
+  return base * multiplier + modifier
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -35,7 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const initialStats: Record<string, number> = {}
     for (const stat of gameSystem.stats) {
       if (stat.initialDice) {
-        const rolled = rollDice(stat.initialDice.count, stat.initialDice.sides, stat.initialDice.modifier, stat.initialDice.multiplier)
+        const rolled = rollDice(stat.initialDice.count, stat.initialDice.sides, stat.initialDice.modifier, stat.initialDice.multiplier, stat.initialDice.bestOf, stat.initialDice.worstOf)
         const max = stat.max ?? Infinity
         initialStats[stat.key] = Math.max(stat.min, Math.min(max, rolled))
       } else {

@@ -3,6 +3,8 @@ export interface DiceSpec {
   sides: number
   modifier: number
   multiplier?: number
+  bestOf?: number
+  worstOf?: number
 }
 
 export interface StatDefinition {
