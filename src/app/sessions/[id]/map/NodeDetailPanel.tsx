@@ -10,6 +10,7 @@ interface NodeDetailPanelProps {
   onClose: () => void
   onNodesChange: React.Dispatch<React.SetStateAction<MapNode[]>>
   mapId: number
+  onAddConnectedNode?: () => void
 }
 
 function isPreset(value: string): boolean {
@@ -21,6 +22,7 @@ export default function NodeDetailPanel({
   onClose,
   onNodesChange,
   mapId,
+  onAddConnectedNode,
 }: NodeDetailPanelProps) {
   const mutate = useOptimisticMutation(onNodesChange)
 
@@ -189,6 +191,15 @@ export default function NodeDetailPanel({
         >
           Set as current location
         </button>
+
+        {onAddConnectedNode && (
+          <button
+            className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded font-medium transition-colors"
+            onClick={onAddConnectedNode}
+          >
+            Add connected node
+          </button>
+        )}
       </div>
     </div>
   )

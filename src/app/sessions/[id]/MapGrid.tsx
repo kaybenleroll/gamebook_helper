@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SvgCanvas, { type MapNode, type NodeBounds } from './map/SvgCanvas'
 import NodeDetailPanel from './map/NodeDetailPanel'
+import DirectionPicker from './map/DirectionPicker'
+import type { MapEdge } from './map/MapEdge'
+import { computeConnectedNodePosition } from '../../../lib/mapPlacement'
+import type { Direction } from '../../../lib/db/schema'
 
 interface MapEntry {
   id: number
@@ -45,8 +49,14 @@ export default function MapGrid({ sessionId }: Props) {
   // Node state for the active map
   const [nodes, setNodes] = useState<MapNode[]>([])
 
+  // Edge state for the active map
+  const [edges, setEdges] = useState<MapEdge[]>([])
+
   // Selection state — which node (by id) has the detail panel open
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null)
+
+  // Pending placement — set when the direction picker should be shown
+  const [pendingPlacement, setPendingPlacement] = useState<{ worldX: number; worldY: number } | null>(null)
 
   const activeMapId = searchParams.get('mapId') ? parseInt(searchParams.get('mapId')!, 10) : null
 
@@ -73,17 +83,29 @@ export default function MapGrid({ sessionId }: Props) {
 
     if (!activeMapId) {
       setNodes([])
+      setEdges([])
       return
     }
 
     void (async () => {
       try {
-        const res = await fetch(`/api/maps/${activeMapId}/nodes`)
-        if (!res.ok) return
-        const data = (await res.json()) as MapNode[]
-        setNodes(data)
+        const [nodesRes, edgesRes] = await Promise.all([
+          fetch(`/api/maps/${activeMapId}/nodes`),
+          fetch(`/api/maps/${activeMapId}/edges`),
+        ])
+        if (nodesRes.ok) {
+          setNodes((await nodesRes.json()) as MapNode[])
+        } else {
+          setNodes([])
+        }
+        if (edgesRes.ok) {
+          setEdges((await edgesRes.json()) as MapEdge[])
+        } else {
+          setEdges([])
+        }
       } catch {
         setNodes([])
+        setEdges([])
       }
     })()
   }, [activeMapId])
@@ -169,6 +191,102 @@ export default function MapGrid({ sessionId }: Props) {
       alert('Failed to delete map. Please try again.')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleBackgroundClick = useCallback((worldX: number, worldY: number) => {
+    setPendingPlacement({ worldX, worldY })
+  }, [])
+
+  const handleAddConnectedNodeFromPanel = useCallback(() => {
+    // coords are ignored when parentNode exists; use (0,0) as sentinel
+    setPendingPlacement({ worldX: 0, worldY: 0 })
+  }, [])
+
+  function handleDirectionCancel() {
+    setPendingPlacement(null)
+    setSelectedNodeId(null)
+  }
+
+  async function handleDirectionChosen(direction: Direction | null) {
+    const coords = pendingPlacement
+    setPendingPlacement(null)
+
+    if (!coords || !activeMapId) return
+
+    const parentNode =
+      selectedNodeId !== null ? nodes.find((n) => n.id === selectedNodeId) ?? null : null
+
+    let pos: { x: number; y: number }
+    if (parentNode !== null && direction !== null) {
+      pos = computeConnectedNodePosition(parentNode, direction, nodes)
+    } else {
+      pos = { x: coords.worldX, y: coords.worldY }
+    }
+
+    const tempNodeId = -Date.now()
+    const tempEdgeId = -(Date.now() + 1)
+
+    const optimisticNode: MapNode = {
+      id: tempNodeId,
+      mapId: activeMapId,
+      sectionNumber: null,
+      locationType: 'room',
+      locationTypeCustom: null,
+      notes: null,
+      visited: false,
+      isCurrent: false,
+      x: pos.x,
+      y: pos.y,
+    }
+
+    const willCreateEdge = parentNode !== null && direction !== null
+    const optimisticEdge: MapEdge | null = willCreateEdge
+      ? {
+          id: tempEdgeId,
+          mapId: activeMapId,
+          fromNodeId: parentNode!.id,
+          toNodeId: tempNodeId,
+          targetMapId: null,
+          direction,
+          connectionType: 'open',
+        }
+      : null
+
+    setNodes((prev) => [...prev, optimisticNode])
+    if (optimisticEdge) setEdges((prev) => [...prev, optimisticEdge])
+
+    try {
+      const nodeRes = await fetch(`/api/maps/${activeMapId}/nodes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locationType: 'room', x: pos.x, y: pos.y }),
+      })
+      if (!nodeRes.ok) throw new Error('Failed to create node')
+      const createdNode = (await nodeRes.json()) as MapNode
+
+      setNodes((prev) => prev.map((n) => (n.id === tempNodeId ? createdNode : n)))
+
+      if (willCreateEdge) {
+        const edgeRes = await fetch(`/api/maps/${activeMapId}/edges`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromNodeId: parentNode!.id,
+            toNodeId: createdNode.id,
+            direction,
+            connectionType: 'open',
+          }),
+        })
+        if (!edgeRes.ok) throw new Error('Failed to create edge')
+        const createdEdge = (await edgeRes.json()) as MapEdge
+        setEdges((prev) => prev.map((e) => (e.id === tempEdgeId ? createdEdge : e)))
+      }
+
+      setSelectedNodeId(createdNode.id)
+    } catch {
+      setNodes((prev) => prev.filter((n) => n.id !== tempNodeId))
+      if (willCreateEdge) setEdges((prev) => prev.filter((e) => e.id !== tempEdgeId))
     }
   }
 
@@ -296,14 +414,15 @@ export default function MapGrid({ sessionId }: Props) {
         </div>
       ) : activeMapId ? (
         <div
-          className="mt-4 border border-gray-200 rounded overflow-hidden flex"
+          className="mt-4 border border-gray-200 rounded overflow-hidden flex relative"
           style={{ height: 520 }}
         >
           <div className="flex-1 min-w-0">
             <SvgCanvas
               nodes={nodes}
+              edges={edges}
               nodeBounds={deriveNodeBounds(nodes)}
-              onBackgroundClick={() => setSelectedNodeId(null)}
+              onBackgroundClick={handleBackgroundClick}
               onNodeClick={(index) => {
                 const node = nodes[index]
                 if (node) setSelectedNodeId(node.id)
@@ -321,9 +440,18 @@ export default function MapGrid({ sessionId }: Props) {
                 mapId={activeMapId}
                 onClose={() => setSelectedNodeId(null)}
                 onNodesChange={setNodes}
+                onAddConnectedNode={handleAddConnectedNodeFromPanel}
               />
             )
           })()}
+
+          {pendingPlacement !== null && (
+            <DirectionPicker
+              hasParent={selectedNodeId !== null}
+              onSelect={(direction) => void handleDirectionChosen(direction)}
+              onCancel={handleDirectionCancel}
+            />
+          )}
         </div>
       ) : (
         <div className="mt-4 p-4 border border-gray-200 rounded text-gray-500">

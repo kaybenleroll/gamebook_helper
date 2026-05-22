@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react'
 import { worldToScreen, screenToWorld, type Pan } from '../../../../lib/mapCoordinates'
+import type { MapEdge } from './MapEdge'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,6 +54,8 @@ export interface SvgCanvasProps {
   nodeBounds?: NodeBounds[]
   /** Nodes to render on the canvas. */
   nodes?: MapNode[]
+  /** Edges to render between nodes. */
+  edges?: MapEdge[]
   /** Called when the user clicks on the canvas background. */
   onBackgroundClick?: (worldX: number, worldY: number) => void
   /** Called when the user clicks on a node (by index). Stub — wired in Slice 4c. */
@@ -111,6 +114,61 @@ function clampPan(
     x: Math.min(Math.max(pan.x, minPanX), maxPanX),
     y: Math.min(Math.max(pan.y, minPanY), maxPanY),
   }
+}
+
+// ---------------------------------------------------------------------------
+// EdgeLayer
+// ---------------------------------------------------------------------------
+
+function EdgeLayer({
+  nodes,
+  edges,
+}: {
+  nodes: MapNode[]
+  edges: MapEdge[]
+}) {
+  const nodeMap = new Map<number, MapNode>()
+  for (const node of nodes) nodeMap.set(node.id, node)
+
+  return (
+    <>
+      {edges.map((edge) => {
+        const from = nodeMap.get(edge.fromNodeId)
+        const to = nodeMap.get(edge.toNodeId)
+        if (!from || !to) return null
+
+        const midX = (from.x + to.x) / 2
+        const midY = (from.y + to.y) / 2
+
+        return (
+          <g key={edge.id}>
+            <line
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
+              stroke="#94a3b8"
+              strokeWidth={2}
+              strokeDasharray="4 2"
+            />
+            {edge.direction !== null && (
+              <text
+                x={midX}
+                y={midY}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={10}
+                fill="#6b7280"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {edge.direction}
+              </text>
+            )}
+          </g>
+        )
+      })}
+    </>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -191,6 +249,7 @@ function NodeLayer({
 export default function SvgCanvas({
   nodeBounds = [],
   nodes = [],
+  edges = [],
   onBackgroundClick,
   onNodeClick,
   children,
@@ -398,6 +457,7 @@ export default function SvgCanvas({
 
       {/* World-space group: nodes and children are placed here */}
       <g transform={transform}>
+        <EdgeLayer nodes={nodes} edges={edges} />
         <NodeLayer nodes={nodes} onNodeClick={onNodeClick} />
         {children}
       </g>
