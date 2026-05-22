@@ -117,10 +117,16 @@ function clampPan(
 // NodeLayer
 // ---------------------------------------------------------------------------
 
-function NodeLayer({ nodes }: { nodes: MapNode[] }) {
+function NodeLayer({
+  nodes,
+  onNodeClick,
+}: {
+  nodes: MapNode[]
+  onNodeClick?: (index: number, worldX: number, worldY: number) => void
+}) {
   return (
     <>
-      {nodes.map((node) => {
+      {nodes.map((node, index) => {
         const fill = node.visited ? COLOUR_VISITED : COLOUR_UNVISITED
         const label = [
           node.sectionNumber !== null ? String(node.sectionNumber) : null,
@@ -130,7 +136,15 @@ function NodeLayer({ nodes }: { nodes: MapNode[] }) {
           .join(' · ')
 
         return (
-          <g key={node.id} className="node-group" style={{ cursor: 'pointer' }}>
+          <g
+            key={node.id}
+            className="node-group"
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              onNodeClick?.(index, node.x, node.y)
+            }}
+          >
             {node.isCurrent && (
               <circle
                 cx={node.x}
@@ -178,6 +192,7 @@ export default function SvgCanvas({
   nodeBounds = [],
   nodes = [],
   onBackgroundClick,
+  onNodeClick,
   children,
 }: SvgCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
@@ -383,7 +398,7 @@ export default function SvgCanvas({
 
       {/* World-space group: nodes and children are placed here */}
       <g transform={transform}>
-        <NodeLayer nodes={nodes} />
+        <NodeLayer nodes={nodes} onNodeClick={onNodeClick} />
         {children}
       </g>
     </svg>
