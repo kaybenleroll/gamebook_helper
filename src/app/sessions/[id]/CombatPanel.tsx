@@ -491,7 +491,19 @@ export default function CombatPanel({
       {/* Active combat */}
       {combat && combat.outcome === 'in_progress' && (
         <div className="border rounded p-4 max-w-xl">
-          <h3 className="font-bold text-lg mb-4">Fighting: {combat.enemyName}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-lg">Fighting: {combat.enemyName}</h3>
+            {combat.metadata['initiativeWinner'] === 'player' && (
+              <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded">
+                You have initiative
+              </span>
+            )}
+            {combat.metadata['initiativeWinner'] === 'enemy' && (
+              <span className="text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded">
+                Enemy has initiative
+              </span>
+            )}
+          </div>
 
           {/* HP bars */}
           <div className="mb-4">
