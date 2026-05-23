@@ -83,11 +83,21 @@ export async function POST(
       combatModifiers,
     })
 
+    // Apply enemyDamageBonus from combat metadata when enemy dealt damage
+    const combatMetadata = combat.metadata as Record<string, unknown>
+    const enemyDamageBonus =
+      typeof combatMetadata['enemyDamageBonus'] === 'number'
+        ? (combatMetadata['enemyDamageBonus'] as number)
+        : 0
+    const baseDamageTaken = result.damageTaken > 0
+      ? result.damageTaken + enemyDamageBonus
+      : result.damageTaken
+
     // Apply overrides if present
     const finalDamageDealt =
       typeof overrides.damageDealt === 'number' ? overrides.damageDealt : result.damageDealt
     const finalDamageTaken =
-      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : result.damageTaken
+      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : baseDamageTaken
 
     // Recalculate enemy state with override damage
     let finalEnemyState = result.enemyState as Record<string, unknown>
@@ -103,10 +113,13 @@ export async function POST(
       }
     }
 
-    // Recalculate character deltas with override damage taken
+    // Recalculate character deltas with enemy damage bonus and any override
     const finalCharacterDeltas: Record<string, number> = { ...result.characterDeltas }
     if (typeof overrides.damageTaken === 'number') {
       finalCharacterDeltas['lifePoints'] = -overrides.damageTaken
+    } else if (baseDamageTaken !== result.damageTaken) {
+      // enemyDamageBonus was applied — update the delta accordingly
+      finalCharacterDeltas['lifePoints'] = -baseDamageTaken
     }
 
     // Recalculate outcome with final values

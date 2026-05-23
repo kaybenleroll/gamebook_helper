@@ -132,7 +132,12 @@ export default function CombatPanel({
       // Convert form values to correct types
       const payload: Record<string, unknown> = {}
       for (const field of enemyStatFields) {
-        const raw = enemyForm[field.key] ?? ''
+        const raw =
+          enemyForm[field.key] !== undefined
+            ? enemyForm[field.key]
+            : field.default !== undefined
+              ? String(field.default)
+              : ''
         if (field.type === 'number') {
           const n = parseFloat(raw)
           if (!isNaN(n)) payload[field.key] = n
@@ -429,7 +434,14 @@ export default function CombatPanel({
                   </label>
                   <input
                     type={field.type === 'number' ? 'number' : 'text'}
-                    value={enemyForm[field.key] ?? ''}
+                    value={
+                      enemyForm[field.key] !== undefined
+                        ? enemyForm[field.key]
+                        : field.default !== undefined
+                          ? String(field.default)
+                          : ''
+                    }
+                    min={field.type === 'number' && field.key === 'enemyDamageBonus' ? 0 : undefined}
                     onChange={(e) =>
                       setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }

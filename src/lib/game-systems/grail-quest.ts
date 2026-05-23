@@ -79,6 +79,7 @@ interface GqMetadata {
   combatModifiers: Record<string, unknown>
   enemyXp: number
   playerThreshold: number
+  enemyDamageBonus: number
 }
 
 // ---- GQ combat module ----
@@ -88,8 +89,9 @@ export const grailQuestCombat: CombatModule = {
     { key: 'name', label: 'Name', type: 'text', required: true },
     { key: 'lifePoints', label: 'Life Points', type: 'number', required: true },
     { key: 'xp', label: 'XP reward', type: 'number', required: false },
-    { key: 'enemyThreshold', label: 'Enemy hit threshold', type: 'number', required: false },
-    { key: 'playerThreshold', label: 'Your hit threshold', type: 'number', required: false },
+    { key: 'enemyThreshold', label: 'Enemy hit threshold', type: 'number', required: false, default: 6 },
+    { key: 'playerThreshold', label: 'Your hit threshold', type: 'number', required: false, default: 4 },
+    { key: 'enemyDamageBonus', label: 'Enemy Damage Bonus', type: 'number', required: false, default: 0 },
   ],
   primaryEnemyHealthStat: 'lifePoints',
 
@@ -132,7 +134,11 @@ export const grailQuestCombat: CombatModule = {
       enemyRoll,
       combatModifiers: {},
       enemyXp: typeof s.xp === 'number' ? s.xp : 0,
-      playerThreshold: (input as any).playerThreshold ?? 6,
+      playerThreshold: (input as any).playerThreshold ?? 4,
+      enemyDamageBonus:
+        typeof (input as any).enemyDamageBonus === 'number'
+          ? Math.max(0, (input as any).enemyDamageBonus)
+          : 0,
     }
 
     return { enemyState, metadata }
