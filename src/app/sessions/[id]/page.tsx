@@ -149,7 +149,7 @@ export default async function SessionPage({
 
       <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0">
         {/* Left column: game panels, scrollable */}
-        <div className="w-full lg:w-[420px] lg:shrink-0 overflow-y-auto">
+        <div className="w-full lg:w-[560px] lg:shrink-0 overflow-y-auto">
           <LeftColumnClient
             sessionId={sessionId}
             savedPanelOrder={session.panelOrder ?? null}
