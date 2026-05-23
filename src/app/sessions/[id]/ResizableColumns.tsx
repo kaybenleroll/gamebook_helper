@@ -9,16 +9,17 @@ interface Props {
 }
 
 export default function ResizableColumns({ left, right, defaultLeftWidth = 680 }: Props) {
-  const [leftWidth, setLeftWidth] = useState(() => {
-    if (typeof window === 'undefined') return defaultLeftWidth
-    return Math.round(window.innerWidth * 0.45)
-  })
+  const [leftWidth, setLeftWidth] = useState(defaultLeftWidth)
   const isDragging = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     isDragging.current = true
     e.preventDefault()
+  }, [])
+
+  useEffect(() => {
+    setLeftWidth(Math.round(window.innerWidth * 0.45))
   }, [])
 
   useEffect(() => {
