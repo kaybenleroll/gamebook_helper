@@ -24,6 +24,7 @@ export const sessions = sqliteTable('sessions', {
   gameSystemId: text('game_system_id').notNull(),
   bookTitle: text('book_title').notNull(),
   notes: text('notes'),
+  panelOrder: text('panel_order'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
