@@ -83,15 +83,34 @@ export async function POST(
       combatModifiers,
     })
 
+    // Apply enemyDamageBonus from combat metadata when enemy dealt damage
+    const combatMetadata = combat.metadata as Record<string, unknown>
+    const enemyDamageBonus =
+      typeof combatMetadata['enemyDamageBonus'] === 'number'
+        ? (combatMetadata['enemyDamageBonus'] as number)
+        : 0
+    const baseDamageTaken = result.damageTaken > 0
+      ? result.damageTaken + enemyDamageBonus
+      : result.damageTaken
+
+    // Apply playerDamageBonus from combat metadata when player dealt damage
+    const playerDamageBonus =
+      typeof combatMetadata['playerDamageBonus'] === 'number'
+        ? (combatMetadata['playerDamageBonus'] as number)
+        : 0
+    const baseDamageDealt = result.damageDealt > 0
+      ? result.damageDealt + playerDamageBonus
+      : result.damageDealt
+
     // Apply overrides if present
     const finalDamageDealt =
-      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : result.damageDealt
+      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : baseDamageDealt
     const finalDamageTaken =
-      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : result.damageTaken
+      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : baseDamageTaken
 
-    // Recalculate enemy state with override damage
+    // Recalculate enemy state with override damage or playerDamageBonus
     let finalEnemyState = result.enemyState as Record<string, unknown>
-    if (typeof overrides.damageDealt === 'number') {
+    if (typeof overrides.damageDealt === 'number' || baseDamageDealt !== result.damageDealt) {
       const originalEnemyState = combat.enemyState as Record<string, unknown>
       const currentLifePoints =
         typeof originalEnemyState['currentLifePoints'] === 'number'
@@ -99,14 +118,17 @@ export async function POST(
           : 0
       finalEnemyState = {
         ...finalEnemyState,
-        currentLifePoints: Math.max(0, currentLifePoints - overrides.damageDealt),
+        currentLifePoints: Math.max(0, currentLifePoints - finalDamageDealt),
       }
     }
 
-    // Recalculate character deltas with override damage taken
+    // Recalculate character deltas with enemy damage bonus and any override
     const finalCharacterDeltas: Record<string, number> = { ...result.characterDeltas }
     if (typeof overrides.damageTaken === 'number') {
       finalCharacterDeltas['lifePoints'] = -overrides.damageTaken
+    } else if (baseDamageTaken !== result.damageTaken) {
+      // enemyDamageBonus was applied — update the delta accordingly
+      finalCharacterDeltas['lifePoints'] = -baseDamageTaken
     }
 
     // Recalculate outcome with final values

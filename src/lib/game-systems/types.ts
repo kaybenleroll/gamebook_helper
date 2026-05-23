@@ -33,7 +33,7 @@ export type CombatState = {
 }
 
 export type CombatModule = {
-  enemyStatFields: Array<{ key: string; label: string; type: 'number' | 'text'; required: boolean }>
+  enemyStatFields: Array<{ key: string; label: string; type: 'number' | 'text'; required: boolean; default?: string | number }>
   primaryEnemyHealthStat: string
   validateEnemyStats(input: unknown): string[]
   start(input: unknown): { enemyState: unknown; metadata: unknown }
