@@ -14,8 +14,29 @@ function formatDiceExpr(dice: DiceSpec): string {
   return base
 }
 
+function DiceIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="16" height="16" rx="3" ry="3" fill="white" fillOpacity="0.25" stroke="white" strokeWidth="1.5" />
+      {/* dots for face showing 4 */}
+      <circle cx="7"  cy="7"  r="1.5" />
+      <circle cx="13" cy="7"  r="1.5" />
+      <circle cx="7"  cy="13" r="1.5" />
+      <circle cx="13" cy="13" r="1.5" />
+    </svg>
+  )
+}
+
 export default function DiceRoller({ defaultDice }: Props) {
   const [result, setResult] = useState<number | null>(null)
+  const [rollCount, setRollCount] = useState(0)
   const [rolling, setRolling] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,6 +57,7 @@ export default function DiceRoller({ defaultDice }: Props) {
       }
       const data = await response.json() as { rolls: number[]; total: number }
       setResult(data.total)
+      setRollCount(c => c + 1)
     } catch {
       setError('Unable to reach dice server')
     } finally {
@@ -50,12 +72,18 @@ export default function DiceRoller({ defaultDice }: Props) {
         <button
           onClick={roll}
           disabled={rolling}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          className="bg-header-accent hover:opacity-90 active:scale-95 transition-transform text-white font-heading text-lg px-6 py-2 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
         >
+          <DiceIcon />
           {rolling ? 'Rolling…' : `Roll ${formatDiceExpr(defaultDice)}`}
         </button>
         {result !== null && !error && (
-          <span className="text-2xl font-mono font-bold">{result}</span>
+          <span
+            key={rollCount}
+            className="font-mono text-accent-blue text-3xl font-bold animate-fade-in"
+          >
+            {result}
+          </span>
         )}
         {error && (
           <span className="text-red-600 text-sm">{error}</span>
