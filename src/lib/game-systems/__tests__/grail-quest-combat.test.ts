@@ -679,6 +679,65 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
   })
 })
 
+describe('resolveRound — enemy initiative with pre-wounded enemy (LP ≤ 5)', () => {
+  it('enemy initiative, enemy LP=3 at start, enemy misses → Phase 2 runs, player kills enemy, outcome player_won', () => {
+    // Regression: previously the phase1EnemyLp ≤ 5 check fired immediately (before the enemy attacked),
+    // ending combat with enemy_knocked_out even though the enemy had initiative and hadn't attacked yet.
+    //
+    // Setup: enemy initiative, enemy LP = 3, enemy MISSES player (roll 2 ≤ 6), player hits in Phase 2
+    // (player roll 12 > 6 → damage 6 → enemy 3−6=0 → player_won).
+    // Dice order: player die1, player die2, enemy die1, enemy die2.
+    // Player dice: [6+6]=12 (used in Phase 2 to kill enemy).
+    // Enemy dice: [1+1]=2 → miss (not > 6).
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6
+      .mockReturnValueOnce(0.99) // player die 2: 6 → sum 12, damage = 12−6 = 6 → enemy 3−6 = 0
+      .mockReturnValueOnce(0)    // enemy die 1: 1
+      .mockReturnValueOnce(0)    // enemy die 2: 1 → sum 2, not > 6 → miss
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(3),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      // Phase 2 must have run — enemy attacked first (missed), then player attacked and killed enemy
+      expect(detail['phaseTwoSkipped']).toBe(false)
+      expect(result.outcome).toBe('player_won')
+      expect(result.damageDealt).toBe(6) // player's Phase 2 hit
+      expect(result.damageTaken).toBe(0) // enemy missed in Phase 1
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('enemy initiative, enemy LP=5 at start, enemy hits but does not kill player → Phase 2 runs, player finishes enemy', () => {
+    // Enemy LP=5, enemy initiative. Enemy hits player but player survives.
+    // Player then attacks in Phase 2 and kills enemy (LP 5 → 0).
+    // Enemy dice: [5+5]=10 > 6 → damage = 10−6 = 4. Player LP 20−4 = 16 (survives).
+    // Player dice: [6+6]=12 > 6 → damage = 12−6 = 6. Enemy LP 5−6 = 0 → player_won.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6
+      .mockReturnValueOnce(0.99) // player die 2: 6 → sum 12
+      .mockReturnValueOnce((5 - 1) / 6) // enemy die 1: 5
+      .mockReturnValueOnce((5 - 1) / 6) // enemy die 2: 5 → sum 10 > 6 → damage 4
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(5),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(false)
+      expect(result.outcome).toBe('player_won')
+      expect(result.damageTaken).toBe(4) // enemy Phase 1 hit
+      expect(result.damageDealt).toBe(6) // player Phase 2 kill
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+})
+
 describe('initiative tie re-roll', () => {
   it('resolves without infinite loop even when first rolls tie', () => {
     // Attempt 1: player 2d6 = [4,4]=8, enemy 2d6 = [4,4]=8 → tie

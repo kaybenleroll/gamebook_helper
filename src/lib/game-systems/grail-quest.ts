@@ -267,10 +267,12 @@ export const grailQuestCombat: CombatModule = {
       phase1PlayerLp = playerCurrentLp - rawDamageTaken
     }
 
-    // Evaluate combat outcome after Phase 1
-    // Grail Quest: combat ends when enemy LP ≤ 5 (0 = killed, 1–5 = knocked out)
+    // Evaluate combat outcome after Phase 1.
+    // When the player has initiative, Phase 1 = player attacks enemy → check enemy LP.
+    // When the enemy has initiative, Phase 1 = enemy attacks player → check player LP only.
+    // Enemy LP is irrelevant in Phase 1 when the enemy is the attacker; it is checked in Phase 2.
     let phase1Outcome: CombatOutcome | null = null
-    if (phase1EnemyLp <= 5) {
+    if (initiativeWinner === 'player' && phase1EnemyLp <= 5) {
       phase1Outcome = phase1EnemyLp <= 0 ? 'player_won' : 'enemy_knocked_out'
     } else if (phase1PlayerLp <= 0) {
       phase1Outcome = 'player_lost'
