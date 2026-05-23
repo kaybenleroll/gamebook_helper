@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
-  verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
   arrayMove,
 } from '@dnd-kit/sortable'
@@ -34,6 +34,14 @@ export const PANEL_IDS = [
 
 export type PanelId = (typeof PANEL_IDS)[number]
 
+const PANEL_SPANS: Record<PanelId, 1 | 2> = {
+  'character-sheet': 2,
+  'dice-roller': 1,
+  'section-tracker': 1,
+  inventory: 2,
+  notes: 2,
+}
+
 function isValidPanelOrder(order: unknown): order is PanelId[] {
   if (!Array.isArray(order)) return false
   const validIds = new Set<string>(PANEL_IDS)
@@ -46,10 +54,11 @@ function isValidPanelOrder(order: unknown): order is PanelId[] {
 
 interface SortableItemProps {
   id: PanelId
+  span: 1 | 2
   children: React.ReactNode
 }
 
-function SortableItem({ id, children }: SortableItemProps) {
+function SortableItem({ id, span, children }: SortableItemProps) {
   const {
     attributes,
     listeners,
@@ -66,7 +75,11 @@ function SortableItem({ id, children }: SortableItemProps) {
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="group relative">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative ${span === 2 ? 'col-span-2' : 'col-span-1'}`}
+    >
       <button
         {...attributes}
         {...listeners}
@@ -241,10 +254,10 @@ export default function LeftColumnClient({
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext items={order} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-col gap-4">
+      <SortableContext items={order} strategy={rectSortingStrategy}>
+        <div className="grid grid-cols-2 gap-4">
           {order.map((id) => (
-            <SortableItem key={id} id={id}>
+            <SortableItem key={id} id={id} span={PANEL_SPANS[id]}>
               {panelNodes[id]}
             </SortableItem>
           ))}
