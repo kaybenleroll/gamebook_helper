@@ -69,7 +69,7 @@ export default function SpellsPanel({ sessionId, spells, initialSpellState }: Pr
         </button>
       </div>
 
-      <table className="border-collapse w-full max-w-lg">
+      <table className="border-collapse w-full">
         <thead>
           <tr className="text-left border-b">
             <th className="py-2 pr-4 font-medium">Spell</th>
