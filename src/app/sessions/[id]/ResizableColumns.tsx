@@ -8,7 +8,7 @@ interface Props {
   defaultLeftWidth?: number
 }
 
-export default function ResizableColumns({ left, right, defaultLeftWidth = 560 }: Props) {
+export default function ResizableColumns({ left, right, defaultLeftWidth = 680 }: Props) {
   const [leftWidth, setLeftWidth] = useState(defaultLeftWidth)
   const isDragging = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -22,7 +22,7 @@ export default function ResizableColumns({ left, right, defaultLeftWidth = 560 }
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
-      const newWidth = Math.max(320, Math.min(900, e.clientX - rect.left))
+      const newWidth = Math.max(420, Math.min(900, e.clientX - rect.left))
       setLeftWidth(newWidth)
     }
     const handleMouseUp = () => {

@@ -144,7 +144,7 @@ export default function CharacterSheet({
   return (
     <section>
       <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Character Sheet</h2>
-      <table className="border-collapse w-full max-w-md">
+      <table className="border-collapse w-full">
         <thead>
           <tr className="text-left border-b">
             <th className="py-2 pr-4 font-body text-text-muted font-medium">Stat</th>
@@ -313,7 +313,7 @@ export default function CharacterSheet({
       </table>
 
       {isGrailQuest && (
-        <div className="mt-4 max-w-md space-y-3">
+        <div className="mt-4 w-full space-y-3">
           {/* Equipped weapon */}
           <div className="flex items-center gap-2">
             <span className="w-32 text-sm font-medium shrink-0">Equipped weapon</span>
