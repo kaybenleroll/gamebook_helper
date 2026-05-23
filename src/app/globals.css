@@ -5,3 +5,14 @@
   --font-body: var(--font-body);
   --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
+
+@theme {
+  --color-canvas-bg: #FDFAF4;
+  --color-panel-bg: #FFFFFF;
+  --color-panel-border: #D4C5A9;
+  --color-header-accent: #E07345;
+  --color-accent-blue: #4A7C9E;
+  --color-text-primary: #2C2416;
+  --color-text-muted: #7A6A52;
+  --color-progress-fill: #7B9E6B;
+}

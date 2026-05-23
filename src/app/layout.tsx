@@ -32,7 +32,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en-GB" className={`${caveat.variable} ${lora.variable} ${jetbrainsMono.variable}`}>
-      <body>{children}</body>
+      <body className="bg-canvas-bg text-text-primary">{children}</body>
     </html>
   )
 }
