@@ -148,8 +148,7 @@ export default function CharacterSheet({
         <thead>
           <tr className="text-left border-b">
             <th className="py-2 pr-4 font-body text-text-muted font-medium">Stat</th>
-            <th className="py-2 pr-4 font-body text-text-muted font-medium text-center">Current</th>
-            <th className="py-2 font-body text-text-muted font-medium text-right">Starting</th>
+            <th className="py-2 font-body text-text-muted font-medium">Current</th>
           </tr>
         </thead>
         <tbody>
@@ -176,135 +175,141 @@ export default function CharacterSheet({
             const isEditing = editingCell?.id === stat.key
             return (
               <tr key={stat.key} className="border-b last:border-0">
-                <td className="py-2 pr-4 font-body text-text-muted">{stat.label}</td>
-                <td className="py-2 pr-4">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      onClick={() => adjust(stat.key, -5)}
-                      disabled={isGameOver || atMin}
-                      className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
-                      aria-label={`Decrease ${stat.label} by 5`}
-                    >
-                      −5
-                    </button>
-                    <button
-                      onClick={() => adjust(stat.key, -1)}
-                      disabled={isGameOver || atMin}
-                      className="w-7 h-7 rounded border font-bold disabled:opacity-40"
-                      aria-label={`Decrease ${stat.label}`}
-                    >
-                      −
-                    </button>
-                    {isEditing ? (
-                      <input
-                        ref={editInputRef}
-                        type="text"
-                        value={editingCell.value}
-                        onChange={(e) => setEditingCell({ id: stat.key, value: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitEdit(stat.key, current)
-                          if (e.key === 'Escape') cancelEdit()
-                        }}
-                        onBlur={() => commitEdit(stat.key, current)}
-                        className="font-mono text-accent-blue w-16 border-b border-accent-blue bg-transparent outline-none text-right"
-                        aria-label={`Edit ${stat.label}`}
-                      />
-                    ) : (
-                      <span
-                        className="font-mono text-accent-blue w-8 text-center cursor-pointer hover:underline"
-                        onClick={() => !isGameOver && startEdit(stat.key, current)}
-                        title="Click to edit"
+                <td className="py-2 pr-4 font-body text-text-muted align-top w-28">{stat.label}</td>
+                <td className="py-2">
+                  <div className="flex flex-col gap-1">
+                    {/* Row 1: current controls */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        onClick={() => adjust(stat.key, -5)}
+                        disabled={isGameOver || atMin}
+                        className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
+                        aria-label={`Decrease ${stat.label} by 5`}
                       >
-                        {current}
-                      </span>
-                    )}
-                    <button
-                      onClick={() => adjust(stat.key, +1)}
-                      disabled={isGameOver || atMax}
-                      className="w-7 h-7 rounded border font-bold disabled:opacity-40"
-                      aria-label={`Increase ${stat.label}`}
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => adjust(stat.key, +5)}
-                      disabled={isGameOver || atMax}
-                      className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
-                      aria-label={`Increase ${stat.label} by 5`}
-                    >
-                      +5
-                    </button>
-                    <input
-                      type="text"
-                      value={statInputs[stat.key] ?? ''}
-                      onChange={(e) =>
-                        setStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')
-                      }}
-                      placeholder="+5 / 32"
-                      className="w-16 border rounded px-1 py-0.5 text-sm font-mono"
-                      aria-label={`Set ${stat.label}`}
-                    />
-                    <button
-                      onClick={() => parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')}
-                      disabled={!(statInputs[stat.key] ?? '').trim()}
-                      className="px-2 py-0.5 text-sm border rounded disabled:opacity-40"
-                      aria-label={`Apply ${stat.label} change`}
-                    >
-                      Apply
-                    </button>
-                  </div>
-                  {isLPStat && (
-                    <div className="w-full bg-panel-border rounded-full h-2 mt-1 mb-3">
-                      <div
-                        className="bg-progress-fill h-2 rounded-full transition-all"
-                        style={{ width: `${lpPercent}%` }}
-                      />
-                    </div>
-                  )}
-                  {isGrailQuest && stat.key === 'experiencePoints' && (
-                    <div className="text-xs text-gray-500 text-center mt-1">
-                      {(() => {
-                        const { progress, threshold } = xpThresholdProgress(current)
-                        return `${progress} / ${threshold} XP to next LP`
-                      })()}
-                    </div>
-                  )}
-                </td>
-                <td className="py-2 text-right font-mono text-accent-blue">
-                  {stat.max !== undefined ? (
-                    <div className="flex items-center justify-end gap-1">
-                      <span className="font-mono text-accent-blue">{startingMax}</span>
+                        −5
+                      </button>
+                      <button
+                        onClick={() => adjust(stat.key, -1)}
+                        disabled={isGameOver || atMin}
+                        className="w-7 h-7 rounded border font-bold disabled:opacity-40"
+                        aria-label={`Decrease ${stat.label}`}
+                      >
+                        −
+                      </button>
+                      {isEditing ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editingCell.value}
+                          onChange={(e) => setEditingCell({ id: stat.key, value: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitEdit(stat.key, current)
+                            if (e.key === 'Escape') cancelEdit()
+                          }}
+                          onBlur={() => commitEdit(stat.key, current)}
+                          className="font-mono text-accent-blue w-16 border-b border-accent-blue bg-transparent outline-none text-right"
+                          aria-label={`Edit ${stat.label}`}
+                        />
+                      ) : (
+                        <span
+                          className="font-mono text-accent-blue w-8 text-center cursor-pointer hover:underline"
+                          onClick={() => !isGameOver && startEdit(stat.key, current)}
+                          title="Click to edit"
+                        >
+                          {current}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => adjust(stat.key, +1)}
+                        disabled={isGameOver || atMax}
+                        className="w-7 h-7 rounded border font-bold disabled:opacity-40"
+                        aria-label={`Increase ${stat.label}`}
+                      >
+                        +
+                      </button>
+                      <button
+                        onClick={() => adjust(stat.key, +5)}
+                        disabled={isGameOver || atMax}
+                        className="w-8 h-7 rounded border text-sm font-bold disabled:opacity-40"
+                        aria-label={`Increase ${stat.label} by 5`}
+                      >
+                        +5
+                      </button>
                       <input
                         type="text"
-                        value={initialStatInputs[stat.key] ?? ''}
+                        value={statInputs[stat.key] ?? ''}
                         onChange={(e) =>
-                          setInitialStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
+                          setStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
                         }
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter')
-                            parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                          if (e.key === 'Enter') parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')
                         }}
                         placeholder="+5 / 32"
-                        className="w-16 border rounded px-1 py-0.5 text-sm font-mono text-left"
-                        aria-label={`Set starting ${stat.label}`}
+                        className="w-16 border rounded px-1 py-0.5 text-sm font-mono"
+                        aria-label={`Set ${stat.label}`}
                       />
                       <button
-                        onClick={() =>
-                          parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
-                        }
-                        disabled={!(initialStatInputs[stat.key] ?? '').trim()}
+                        onClick={() => parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')}
+                        disabled={!(statInputs[stat.key] ?? '').trim()}
                         className="px-2 py-0.5 text-sm border rounded disabled:opacity-40"
-                        aria-label={`Apply starting ${stat.label} change`}
+                        aria-label={`Apply ${stat.label} change`}
                       >
-                        Set
+                        Apply
                       </button>
                     </div>
-                  ) : (
-                    <span className="font-mono text-accent-blue">—</span>
-                  )}
+
+                    {/* LP progress bar (only for primary health stat) */}
+                    {isLPStat && (
+                      <div className="w-full bg-panel-border rounded-full h-2 mt-0.5 mb-1">
+                        <div
+                          className="bg-progress-fill h-2 rounded-full transition-all"
+                          style={{ width: `${lpPercent}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {/* XP threshold text */}
+                    {isGrailQuest && stat.key === 'experiencePoints' && (
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {(() => {
+                          const { progress, threshold } = xpThresholdProgress(current)
+                          return `${progress} / ${threshold} XP to next LP`
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Row 2: Starting — only for stats with a max */}
+                    {stat.max !== undefined && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="font-body text-text-muted text-xs">Starting:</span>
+                        <span className="font-mono text-accent-blue text-sm">{startingMax}</span>
+                        <input
+                          type="text"
+                          value={initialStatInputs[stat.key] ?? ''}
+                          onChange={(e) =>
+                            setInitialStatInputs((prev) => ({ ...prev, [stat.key]: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter')
+                              parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                          }}
+                          placeholder="+5 / 32"
+                          className="w-14 border rounded px-1 py-0.5 text-xs font-mono"
+                          aria-label={`Set starting ${stat.label}`}
+                        />
+                        <button
+                          onClick={() =>
+                            parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
+                          }
+                          disabled={!(initialStatInputs[stat.key] ?? '').trim()}
+                          className="px-2 py-0.5 text-xs border rounded disabled:opacity-40"
+                          aria-label={`Apply starting ${stat.label} change`}
+                        >
+                          Set
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </td>
               </tr>
             )
