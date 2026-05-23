@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from '@playwright/test'
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test'
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://gamebook-app:3000'
 
@@ -11,6 +11,13 @@ async function getSeededSessionId(request: APIRequestContext): Promise<number> {
   const res = await request.get(`${BASE}/api/sessions`)
   const sessions: Array<{ id: number }> = await res.json()
   return sessions.reduce((min, s) => (s.id < min ? s.id : min), sessions[0].id)
+}
+
+// Dismiss the CreationRolls modal if it appears — it blocks pointer events on the canvas.
+async function dismissCreationModal(page: Page): Promise<void> {
+  const gotIt = page.getByRole('button', { name: 'Got it' })
+  const visible = await gotIt.isVisible().catch(() => false)
+  if (visible) await gotIt.click()
 }
 
 // ---------------------------------------------------------------------------
@@ -79,17 +86,17 @@ test.describe('Scenario 2: Add first node → circle on canvas', () => {
         }
         await page.waitForTimeout(1500)
         // Check if circles are visible — if not, the client-side fetch may have hit contention
-        const found = await page.locator('svg circle').count()
+        const found = await page.locator('[data-testid="map-canvas"] circle').count()
         if (found >= 1) { circleFound = true; break }
         await page.waitForTimeout(1000)
       }
       expect(circleFound).toBe(true)
 
-      const svg = page.locator('svg').first()
+      const svg = page.locator('[data-testid="map-canvas"]')
       await svg.scrollIntoViewIfNeeded()
       await expect(svg).toBeVisible({ timeout: 5000 })
 
-      const count = await page.locator('svg circle').count()
+      const count = await page.locator('[data-testid="map-canvas"] circle').count()
       expect(count).toBeGreaterThanOrEqual(1)
 
       await page.screenshot({ path: '/app/.scratch/slice9-02-circle-visible.png' })
@@ -140,7 +147,7 @@ test.describe('Scenario 3: Add connected node → edge appears', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
     await expect(svg).toBeVisible({ timeout: 5000 })
 
@@ -198,7 +205,7 @@ test.describe('Scenario 4: Drag node → snaps to 20px grid', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
 
     // Wait for at least one node circle
@@ -264,11 +271,12 @@ test.describe('Scenario 5: Edit node detail panel → persists via API', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
 
     const circles = svg.locator('circle')
     await expect(circles.first()).toBeVisible({ timeout: 8000 })
+    await dismissCreationModal(page)
     await circles.first().click()
     await page.waitForTimeout(400)
 
@@ -336,7 +344,7 @@ test.describe('Scenario 6: Edge creation → styled and detail panel', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
 
     // Wait for circles to render first
@@ -424,7 +432,7 @@ test.describe('Scenario 7: Cross-map edge → purple, click navigates', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
     await expect(svg).toBeVisible({ timeout: 5000 })
     await expect(svg.locator('circle').first()).toBeVisible({ timeout: 8000 })
@@ -492,7 +500,7 @@ test.describe('Scenario 8: Switch map tabs → canvas updates', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
     await expect(svg.locator('circle').first()).toBeVisible({ timeout: 8000 })
 
@@ -557,7 +565,7 @@ test.describe('Scenario 9: Delete node → edges cascade deleted', () => {
     await page.waitForLoadState('networkidle')
     await page.waitForTimeout(800)
 
-    const svg = page.locator('svg').first()
+    const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
     await expect(svg.locator('circle').first()).toBeVisible({ timeout: 8000 })
 
