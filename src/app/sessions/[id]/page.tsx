@@ -10,6 +10,7 @@ import { eq, asc, desc } from 'drizzle-orm'
 import MapGrid from './MapGrid'
 import LeftColumnClient from './LeftColumnClient'
 import ResizableColumns from './ResizableColumns'
+import SectionBreadcrumb from './SectionBreadcrumb'
 
 export default async function SessionPage({
   params,
@@ -205,7 +206,6 @@ export default async function SessionPage({
       )}
 
       <ResizableColumns
-        defaultLeftWidth={560}
         left={
           <LeftColumnClient
             sessionId={sessionId}
@@ -221,8 +221,6 @@ export default async function SessionPage({
             primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
             creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
             defaultDice={gameSystem.defaultDice}
-            initialCurrentSection={currentSection}
-            initialHistory={sectionHistoryForClient}
             initialItems={inventoryForClient}
             initialNotes={session.notes ?? null}
             spellDefinitions={spellDefs}
@@ -230,9 +228,16 @@ export default async function SessionPage({
           />
         }
         right={
-          <Suspense fallback={<div className="p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
-            <MapGrid sessionId={sessionId} />
-          </Suspense>
+          <div className="flex flex-col h-full">
+            <SectionBreadcrumb
+              sessionId={sessionId}
+              initialCurrentSection={currentSection}
+              initialHistory={sectionHistoryForClient}
+            />
+            <Suspense fallback={<div className="p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
+              <MapGrid sessionId={sessionId} />
+            </Suspense>
+          </div>
         }
       />
     </main>

@@ -18,7 +18,6 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import CombatPanel from './CombatPanel'
 import DiceRoller from './DiceRoller'
-import SectionTracker from './SectionTracker'
 import Notes from './Notes'
 import TabbedStatsPanel from './TabbedStatsPanel'
 import type { StatDefinition, CombatModule, DiceSpec, SpellDefinition } from '../../../lib/game-systems/types'
@@ -27,7 +26,6 @@ import type { CreationRolls } from '../../../lib/db/schema'
 export const PANEL_IDS = [
   'tabbed-stats',
   'dice-roller',
-  'section-tracker',
   'notes',
 ] as const
 
@@ -36,7 +34,6 @@ export type PanelId = (typeof PANEL_IDS)[number]
 const PANEL_SPANS: Record<PanelId, 1 | 2> = {
   'tabbed-stats': 2,
   'dice-roller': 1,
-  'section-tracker': 1,
   notes: 2,
 }
 
@@ -133,11 +130,6 @@ interface InventoryItem {
   createdAt: string
 }
 
-interface SectionEntry {
-  sectionNumber: number
-  visitedAt: string
-}
-
 interface SpellState {
   spellId: string
   usesRemaining: number
@@ -157,8 +149,6 @@ export interface LeftColumnProps {
   primaryEnemyHealthStat: string
   creationRolls: CreationRolls | null
   defaultDice: DiceSpec
-  initialCurrentSection: number | null
-  initialHistory: SectionEntry[]
   initialItems: InventoryItem[]
   initialNotes: string | null
   spellDefinitions: SpellDefinition[]
@@ -179,8 +169,6 @@ export default function LeftColumnClient({
   primaryEnemyHealthStat,
   creationRolls,
   defaultDice,
-  initialCurrentSection,
-  initialHistory,
   initialItems,
   initialNotes,
   spellDefinitions,
@@ -260,13 +248,6 @@ export default function LeftColumnClient({
       />
     ),
     'dice-roller': <DiceRoller defaultDice={defaultDice} />,
-    'section-tracker': (
-      <SectionTracker
-        sessionId={sessionId}
-        initialCurrentSection={initialCurrentSection}
-        initialHistory={initialHistory}
-      />
-    ),
     notes: <Notes sessionId={sessionId} initialNotes={initialNotes} />,
   }
 
