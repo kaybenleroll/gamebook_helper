@@ -123,6 +123,23 @@ export default function CombatPanel({
 
   const [roundError, setRoundError] = useState<string | null>(null)
 
+  // ---- Open start form with equipment-derived defaults ----
+
+  function openStartForm() {
+    const weaponValue = (characterStats.weapon as { value?: number } | undefined)?.value
+    const armourValue = (characterStats.armour as { value?: number } | undefined)?.value
+    const initial: EnemyFormState = {}
+    if (weaponValue !== undefined) {
+      initial['playerDamageBonus'] = String(weaponValue)
+    }
+    if (armourValue !== undefined) {
+      initial['playerArmourReduction'] = String(armourValue)
+    }
+    setEnemyForm(initial)
+    setStartError(null)
+    setShowStartForm(true)
+  }
+
   // ---- Start fight ----
 
   async function startFight() {
@@ -418,7 +435,7 @@ export default function CombatPanel({
         <>
           {!showStartForm ? (
             <button
-              onClick={() => setShowStartForm(true)}
+              onClick={openStartForm}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
             >
               Start fight
@@ -441,7 +458,7 @@ export default function CombatPanel({
                           ? String(field.default)
                           : ''
                     }
-                    min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus') ? 0 : undefined}
+                    min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus' || field.key === 'playerArmourReduction') ? 0 : undefined}
                     onChange={(e) =>
                       setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }
@@ -460,7 +477,7 @@ export default function CombatPanel({
                   {isStarting ? 'Starting…' : 'Start'}
                 </button>
                 <button
-                  onClick={() => { setShowStartForm(false); setStartError(null) }}
+                  onClick={() => { setShowStartForm(false); setStartError(null); setEnemyForm({}) }}
                   className="px-4 py-2 border rounded"
                 >
                   Cancel

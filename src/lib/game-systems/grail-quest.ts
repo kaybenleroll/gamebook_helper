@@ -81,6 +81,7 @@ interface GqMetadata {
   playerThreshold: number
   enemyDamageBonus: number
   playerDamageBonus: number
+  playerArmourReduction: number
 }
 
 // ---- GQ combat module ----
@@ -94,6 +95,7 @@ export const grailQuestCombat: CombatModule = {
     { key: 'playerThreshold', label: 'Your hit threshold', type: 'number', required: false, default: 4 },
     { key: 'enemyDamageBonus', label: 'Enemy Damage Bonus', type: 'number', required: false, default: 0 },
     { key: 'playerDamageBonus', label: 'Player Damage Bonus', type: 'number', required: false, default: 5 },
+    { key: 'playerArmourReduction', label: 'Player Armour (DR)', type: 'number', required: false, default: 0 },
   ],
   primaryEnemyHealthStat: 'lifePoints',
 
@@ -144,6 +146,10 @@ export const grailQuestCombat: CombatModule = {
       playerDamageBonus:
         typeof (input as any).playerDamageBonus === 'number'
           ? Math.max(0, (input as any).playerDamageBonus)
+          : 0,
+      playerArmourReduction:
+        typeof (input as any).playerArmourReduction === 'number'
+          ? Math.max(0, (input as any).playerArmourReduction)
           : 0,
     }
 

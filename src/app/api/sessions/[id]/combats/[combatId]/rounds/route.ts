@@ -89,8 +89,12 @@ export async function POST(
       typeof combatMetadata['enemyDamageBonus'] === 'number'
         ? (combatMetadata['enemyDamageBonus'] as number)
         : 0
+    const playerArmourReduction =
+      typeof combatMetadata['playerArmourReduction'] === 'number'
+        ? (combatMetadata['playerArmourReduction'] as number)
+        : 0
     const baseDamageTaken = result.damageTaken > 0
-      ? result.damageTaken + enemyDamageBonus
+      ? Math.max(0, 2 + enemyDamageBonus - playerArmourReduction)
       : result.damageTaken
 
     // Apply playerDamageBonus from combat metadata when player dealt damage
