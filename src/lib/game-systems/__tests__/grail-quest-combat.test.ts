@@ -124,6 +124,66 @@ describe('start', () => {
     }
     expect(metadata['enemyXp']).toBe(25)
   })
+
+  describe('auto-roll initiative', () => {
+    it('sets initiativeWinner, populates playerRoll and enemyRoll, startNarrative includes both rolls', () => {
+      // Force player wins initiative: player [6+6]=12, enemy [1+1]=2
+      vi.spyOn(Math, 'random')
+        .mockReturnValueOnce(0.99) // player die 1: 6
+        .mockReturnValueOnce(0.99) // player die 2: 6 → sum 12
+        .mockReturnValueOnce(0)    // enemy die 1: 1
+        .mockReturnValueOnce(0)    // enemy die 2: 1 → sum 2
+      try {
+        const result = grailQuestCombat.start(makeEnemyStats()) as {
+          metadata: Record<string, unknown>
+          startNarrative?: string
+        }
+        expect(['player', 'enemy']).toContain(result.metadata['initiativeWinner'])
+        expect(typeof result.metadata['playerRoll']).toBe('number')
+        expect(typeof result.metadata['enemyRoll']).toBe('number')
+        expect(result.metadata['playerRoll']).not.toBe(result.metadata['enemyRoll'])
+        expect(typeof result.startNarrative).toBe('string')
+        expect(result.startNarrative).toContain(String(result.metadata['playerRoll']))
+        expect(result.startNarrative).toContain(String(result.metadata['enemyRoll']))
+      } finally {
+        vi.restoreAllMocks()
+      }
+    })
+  })
+
+  describe('manual initiative override', () => {
+    it('player override: initiativeWinner is player, narrative contains "book-prescribed", no roll values', () => {
+      const result = grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'player' }) as {
+        metadata: Record<string, unknown>
+        startNarrative?: string
+      }
+      expect(result.metadata['initiativeWinner']).toBe('player')
+      expect(typeof result.startNarrative).toBe('string')
+      expect(result.startNarrative).toContain('book-prescribed')
+      expect(result.startNarrative).toContain('you go first')
+    })
+
+    it('enemy override: initiativeWinner is enemy, narrative contains "book-prescribed"', () => {
+      const result = grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'enemy' }) as {
+        metadata: Record<string, unknown>
+        startNarrative?: string
+      }
+      expect(result.metadata['initiativeWinner']).toBe('enemy')
+      expect(typeof result.startNarrative).toBe('string')
+      expect(result.startNarrative).toContain('book-prescribed')
+      expect(result.startNarrative).toContain('enemy goes first')
+    })
+
+    it('player override: no dice rolled (Math.random not called)', () => {
+      const spy = vi.spyOn(Math, 'random')
+      try {
+        grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'player' })
+        expect(spy).not.toHaveBeenCalled()
+      } finally {
+        vi.restoreAllMocks()
+      }
+    })
+  })
 })
 
 // Hit condition: roll > threshold (strictly greater than).

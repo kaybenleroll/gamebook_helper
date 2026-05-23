@@ -159,6 +159,8 @@ export default function CombatPanel({
         if (field.type === 'number') {
           const n = parseFloat(raw)
           if (!isNaN(n)) payload[field.key] = n
+        } else if (field.type === 'radio') {
+          if (raw.trim()) payload[field.key] = raw.trim()
         } else {
           if (raw.trim()) payload[field.key] = raw.trim()
         }
@@ -449,24 +451,49 @@ export default function CombatPanel({
                 <div key={field.key} className="flex items-center gap-2 mb-2">
                   <label className="w-28 text-sm shrink-0">
                     {field.label}
-                    {field.required && <span className="text-red-500">*</span>}
+                    {'required' in field && field.required && <span className="text-red-500">*</span>}
                   </label>
-                  <input
-                    type={field.type === 'number' ? 'number' : 'text'}
-                    value={
-                      enemyForm[field.key] !== undefined
-                        ? enemyForm[field.key]
-                        : field.default !== undefined
-                          ? String(field.default)
-                          : ''
-                    }
-                    min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus' || field.key === 'playerArmourReduction') ? 0 : undefined}
-                    onChange={(e) =>
-                      setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
-                    }
-                    className="border rounded px-2 py-1 text-sm flex-1"
-                    aria-label={field.label}
-                  />
+                  {field.type === 'radio' ? (
+                    <div className="flex gap-3 flex-wrap" role="radiogroup" aria-label={field.label}>
+                      {field.options.map((opt) => {
+                        const currentVal =
+                          enemyForm[field.key] !== undefined
+                            ? enemyForm[field.key]
+                            : field.default ?? ''
+                        return (
+                          <label key={opt.value} className="flex items-center gap-1 text-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              name={field.key}
+                              value={opt.value}
+                              checked={currentVal === opt.value}
+                              onChange={() =>
+                                setEnemyForm((prev) => ({ ...prev, [field.key]: opt.value }))
+                              }
+                            />
+                            {opt.label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <input
+                      type={field.type === 'number' ? 'number' : 'text'}
+                      value={
+                        enemyForm[field.key] !== undefined
+                          ? enemyForm[field.key]
+                          : field.default !== undefined
+                            ? String(field.default)
+                            : ''
+                      }
+                      min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus' || field.key === 'playerArmourReduction') ? 0 : undefined}
+                      onChange={(e) =>
+                        setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
+                      }
+                      className="border rounded px-2 py-1 text-sm flex-1"
+                      aria-label={field.label}
+                    />
+                  )}
                 </div>
               ))}
               {startError && <p className="text-red-600 text-sm mb-2">{startError}</p>}
@@ -665,10 +692,16 @@ export default function CombatPanel({
           )}
 
           {/* Round log */}
-          {combat.rounds.length > 0 && (
+          {(combat.rounds.length > 0 || typeof combat.metadata['startNarrative'] === 'string') && (
             <div className="mt-4">
               <h4 className="font-semibold mb-2">Round log</h4>
               <div className="border rounded divide-y text-sm max-h-48 overflow-y-auto">
+                {typeof combat.metadata['startNarrative'] === 'string' && (
+                  <div className="text-sm border-b py-2 last:border-0">
+                    <span className="font-semibold text-gray-500">Start:</span>{' '}
+                    <span className="text-gray-600 italic">{combat.metadata['startNarrative'] as string}</span>
+                  </div>
+                )}
                 {combat.rounds.map((r) => (
                   <RoundLogEntry key={r.id} round={r} />
                 ))}
@@ -699,10 +732,16 @@ export default function CombatPanel({
           </div>
 
           {/* Read-only round log */}
-          {combat.rounds.length > 0 && (
+          {(combat.rounds.length > 0 || typeof combat.metadata['startNarrative'] === 'string') && (
             <div className="mb-4">
               <h4 className="font-semibold mb-2">Round log</h4>
               <div className="border rounded divide-y text-sm max-h-48 overflow-y-auto">
+                {typeof combat.metadata['startNarrative'] === 'string' && (
+                  <div className="text-sm border-b py-2 last:border-0">
+                    <span className="font-semibold text-gray-500">Start:</span>{' '}
+                    <span className="text-gray-600 italic">{combat.metadata['startNarrative'] as string}</span>
+                  </div>
+                )}
                 {combat.rounds.map((r) => (
                   <RoundLogEntry key={r.id} round={r} />
                 ))}

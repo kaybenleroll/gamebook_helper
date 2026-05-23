@@ -98,6 +98,17 @@ export const grailQuestCombat: CombatModule = {
     { key: 'playerDamageBonus', label: 'Player Damage Bonus', type: 'number', required: false, default: 5 },
     { key: 'playerArmourReduction', label: 'Player Armour (DR)', type: 'number', required: false, default: 0 },
     { key: 'enemyArmourReduction', label: 'Enemy Armour (DR)', type: 'number', required: false, default: 0 },
+    {
+      key: 'initiativeMode',
+      label: 'Initiative',
+      type: 'radio',
+      options: [
+        { value: 'auto', label: 'Auto-roll' },
+        { value: 'player', label: 'Player has initiative' },
+        { value: 'enemy', label: 'Enemy has initiative' },
+      ],
+      default: 'auto',
+    },
   ],
   primaryEnemyHealthStat: 'lifePoints',
 
@@ -119,19 +130,34 @@ export const grailQuestCombat: CombatModule = {
     return errors
   },
 
-  start(input: unknown): { enemyState: unknown; metadata: unknown } {
+  start(input: unknown, options?: { initiativeOverride?: 'player' | 'enemy' }): { enemyState: unknown; metadata: unknown; startNarrative?: string } {
     const s = input as GqEnemyStats
     const lifePoints = typeof s.lifePoints === 'number' ? s.lifePoints : 0
 
-    // Roll initiative — 2d6 each, re-roll on ties
+    let initiativeWinner: 'player' | 'enemy'
     let playerRoll: number
     let enemyRoll: number
-    do {
-      playerRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
-      enemyRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
-    } while (playerRoll === enemyRoll)
+    let startNarrative: string
 
-    const initiativeWinner: 'player' | 'enemy' = playerRoll > enemyRoll ? 'player' : 'enemy'
+    if (options?.initiativeOverride === 'player' || options?.initiativeOverride === 'enemy') {
+      // Book-prescribed initiative — skip dice roll
+      initiativeWinner = options.initiativeOverride
+      playerRoll = 0
+      enemyRoll = 0
+      startNarrative =
+        initiativeWinner === 'player'
+          ? 'Initiative: you go first (book-prescribed).'
+          : 'Initiative: enemy goes first (book-prescribed).'
+    } else {
+      // Auto-roll initiative — 2d6 each, re-roll on ties
+      do {
+        playerRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
+        enemyRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
+      } while (playerRoll === enemyRoll)
+      initiativeWinner = playerRoll > enemyRoll ? 'player' : 'enemy'
+      const winnerLabel = initiativeWinner === 'player' ? 'You have' : 'Enemy has'
+      startNarrative = `Initiative roll — you: ${playerRoll}, enemy: ${enemyRoll}. ${winnerLabel} initiative.`
+    }
 
     const enemyState: GqEnemyState = { currentLifePoints: lifePoints }
     const metadata: GqMetadata = {
@@ -159,7 +185,7 @@ export const grailQuestCombat: CombatModule = {
           : 0,
     }
 
-    return { enemyState, metadata }
+    return { enemyState, metadata, startNarrative }
   },
 
   roundOptions(_state: CombatState): RoundOption[] {
