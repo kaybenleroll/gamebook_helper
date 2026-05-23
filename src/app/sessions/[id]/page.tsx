@@ -206,7 +206,6 @@ export default async function SessionPage({
       )}
 
       <ResizableColumns
-        defaultLeftWidth={680}
         left={
           <LeftColumnClient
             sessionId={sessionId}
