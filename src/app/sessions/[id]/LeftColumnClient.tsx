@@ -78,7 +78,7 @@ function SortableItem({ id, span, children }: SortableItemProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`group relative ${span === 2 ? 'col-span-2' : 'col-span-1'}`}
+      className={`group relative min-w-0 overflow-hidden ${span === 2 ? 'col-span-2' : 'col-span-1'}`}
     >
       <button
         {...attributes}

@@ -9,6 +9,7 @@ import type { CreationRolls } from '../../../lib/db/schema'
 import { eq, asc, desc } from 'drizzle-orm'
 import MapGrid from './MapGrid'
 import LeftColumnClient from './LeftColumnClient'
+import ResizableColumns from './ResizableColumns'
 
 export default async function SessionPage({
   params,
@@ -147,9 +148,9 @@ export default async function SessionPage({
         </div>
       )}
 
-      <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0">
-        {/* Left column: game panels, scrollable */}
-        <div className="w-full lg:w-[560px] lg:shrink-0 overflow-y-auto">
+      <ResizableColumns
+        defaultLeftWidth={560}
+        left={
           <LeftColumnClient
             sessionId={sessionId}
             savedPanelOrder={session.panelOrder ?? null}
@@ -169,15 +170,13 @@ export default async function SessionPage({
             initialItems={inventoryForClient}
             initialNotes={session.notes ?? null}
           />
-        </div>
-
-        {/* Right column: map, fills remaining space */}
-        <div className="flex-1 min-w-0 flex flex-col min-h-[520px] lg:min-h-0">
+        }
+        right={
           <Suspense fallback={<div className="p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
             <MapGrid sessionId={sessionId} />
           </Suspense>
-        </div>
-      </div>
+        }
+      />
     </main>
   )
 }
