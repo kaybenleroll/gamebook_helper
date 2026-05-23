@@ -5,6 +5,7 @@ import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
 import { sessions, characters, maps } from '../../../lib/db/schema'
 import type { CreationRolls, RollAttempt } from '../../../lib/db/schema'
+import logger from '../../../lib/logger'
 
 function rollOnce(count: number, sides: number): number[] {
   return Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1)
@@ -83,9 +84,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return session.id
     })
 
+    logger.info({ sessionId }, 'session created')
     return NextResponse.json({ sessionId }, { status: 201 })
   } catch (err) {
-    console.error('[POST /api/sessions]:', err)
+    logger.error({ err }, '[POST /api/sessions] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -106,7 +108,7 @@ export async function GET(): Promise<NextResponse> {
     })
     return NextResponse.json(result)
   } catch (err) {
-    console.error('[GET /api/sessions]:', err)
+    logger.error({ err }, '[GET /api/sessions] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '../../../../../lib/db'
 import { sessions, sectionVisits } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
+import logger from '../../../../../lib/logger'
 
 export async function GET(
   _request: NextRequest,
@@ -36,7 +37,7 @@ export async function GET(
       })),
     })
   } catch (err) {
-    console.error('[GET /api/sessions/[id]/section]:', err)
+    logger.error({ err }, '[GET /api/sessions/[id]/section] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -80,7 +81,7 @@ export async function POST(
       { status: 201 },
     )
   } catch (err) {
-    console.error('[POST /api/sessions/[id]/section]:', err)
+    logger.error({ err }, '[POST /api/sessions/[id]/section] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

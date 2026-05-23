@@ -4,6 +4,7 @@ import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
 import { db } from '../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
+import logger from '../../../../../lib/logger'
 
 function formatItem(item: typeof inventoryItems.$inferSelect) {
   return {
@@ -80,7 +81,7 @@ export async function GET(
 
     return NextResponse.json(items.map(formatItem))
   } catch (err) {
-    console.error('[GET /api/sessions/[id]/inventory]:', err)
+    logger.error({ err }, '[GET /api/sessions/[id]/inventory] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -147,9 +148,10 @@ export async function POST(
       .all()
       .at(-1)!
 
+    logger.debug({ sessionId }, 'inventory item added')
     return NextResponse.json(formatItem(created), { status: 201 })
   } catch (err) {
-    console.error('[POST /api/sessions/[id]/inventory]:', err)
+    logger.error({ err }, '[POST /api/sessions/[id]/inventory] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

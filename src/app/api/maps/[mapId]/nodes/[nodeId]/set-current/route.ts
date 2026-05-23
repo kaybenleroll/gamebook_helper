@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '../../../../../../../lib/db'
 import { maps, mapNodes } from '../../../../../../../lib/db/schema'
 import { eq, and, asc } from 'drizzle-orm'
+import logger from '../../../../../../../lib/logger'
 
 function formatNode(node: typeof mapNodes.$inferSelect) {
   return {
@@ -72,7 +73,7 @@ export async function POST(
 
     return NextResponse.json(nodes.map(formatNode))
   } catch (err) {
-    console.error('[POST /api/maps/[mapId]/nodes/[nodeId]/set-current]:', err)
+    logger.error({ err }, '[POST /api/maps/[mapId]/nodes/[nodeId]/set-current] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -6,6 +6,7 @@ import { sessions, characters, combats, combatRounds } from '../../../../../../l
 import { eq, asc, and } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../lib/db/schema'
 import type { GameSystem } from '../../../../../../lib/game-systems/types'
+import logger from '../../../../../../lib/logger'
 
 function formatTimestamp(value: Date | number | null): string | null {
   if (!value) return null
@@ -92,7 +93,7 @@ export async function GET(
 
     return NextResponse.json(formatCombat(combat, rounds, gameSystem, characterStats))
   } catch (err) {
-    console.error('[GET /api/sessions/[id]/combats/[combatId]]:', err)
+    logger.error({ err }, '[GET /api/sessions/[id]/combats/[combatId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -145,9 +146,10 @@ export async function PATCH(
       .orderBy(asc(combatRounds.roundNumber))
       .all()
 
+    logger.info({ sessionId, combatId: combatIdInt, outcome: body.outcome }, 'combat resolved')
     return NextResponse.json(formatCombat(updated, rounds))
   } catch (err) {
-    console.error('[PATCH /api/sessions/[id]/combats/[combatId]]:', err)
+    logger.error({ err }, '[PATCH /api/sessions/[id]/combats/[combatId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

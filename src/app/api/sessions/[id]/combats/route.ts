@@ -5,6 +5,7 @@ import { db } from '../../../../../lib/db'
 import { sessions, characters, combats, combatRounds } from '../../../../../lib/db/schema'
 import { eq, desc, asc } from 'drizzle-orm'
 import type { GameSystem } from '../../../../../lib/game-systems/types'
+import logger from '../../../../../lib/logger'
 
 function formatCombat(
   combat: typeof combats.$inferSelect,
@@ -101,7 +102,7 @@ export async function GET(
 
     return NextResponse.json({ active: activeWithRounds, history })
   } catch (err) {
-    console.error('[GET /api/sessions/[id]/combats]:', err)
+    logger.error({ err }, '[GET /api/sessions/[id]/combats] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -179,9 +180,10 @@ export async function POST(
     const character = db.select().from(characters).where(eq(characters.sessionId, sessionId)).get()
     const characterStats = character ? (character.stats as Record<string, unknown>) : undefined
 
+    logger.info({ sessionId, combatId: combat!.id }, 'combat started')
     return NextResponse.json(formatCombat(combat!, [], gameSystem, characterStats), { status: 201 })
   } catch (err) {
-    console.error('[POST /api/sessions/[id]/combats]:', err)
+    logger.error({ err }, '[POST /api/sessions/[id]/combats] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

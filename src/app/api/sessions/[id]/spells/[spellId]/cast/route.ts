@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '../../../../../../../lib/db'
 import { sessions, sessionSpells } from '../../../../../../../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import logger from '../../../../../../../lib/logger'
 
 export async function POST(
   _request: NextRequest,
@@ -46,7 +47,7 @@ export async function POST(
 
     return NextResponse.json({ spellId: updated.spellId, usesRemaining: updated.usesRemaining })
   } catch (err) {
-    console.error('[POST /api/sessions/[id]/spells/[spellId]/cast]:', err)
+    logger.error({ err }, '[POST /api/sessions/[id]/spells/[spellId]/cast] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
