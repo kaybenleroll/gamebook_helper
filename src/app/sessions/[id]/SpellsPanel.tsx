@@ -57,7 +57,7 @@ export default function SpellsPanel({ sessionId, spells, initialSpellState }: Pr
   }
 
   return (
-    <section className="mt-8 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
+    <section>
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3">Spells</h2>
         <button

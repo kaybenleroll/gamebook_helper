@@ -16,34 +16,28 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import SessionClient from './SessionClient'
 import CombatPanel from './CombatPanel'
 import DiceRoller from './DiceRoller'
 import SectionTracker from './SectionTracker'
-import InventoryPanel from './InventoryPanel'
 import Notes from './Notes'
-import SpellsPanel from './SpellsPanel'
+import TabbedStatsPanel from './TabbedStatsPanel'
 import type { StatDefinition, CombatModule, DiceSpec, SpellDefinition } from '../../../lib/game-systems/types'
 import type { CreationRolls } from '../../../lib/db/schema'
 
 export const PANEL_IDS = [
-  'character-sheet',
+  'tabbed-stats',
   'dice-roller',
   'section-tracker',
-  'inventory',
   'notes',
-  'spells',
 ] as const
 
 export type PanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_SPANS: Record<PanelId, 1 | 2> = {
-  'character-sheet': 2,
+  'tabbed-stats': 2,
   'dice-roller': 1,
   'section-tracker': 1,
-  inventory: 2,
   notes: 2,
-  spells: 1,
 }
 
 function isValidPanelOrder(order: unknown): order is PanelId[] {
@@ -192,7 +186,7 @@ export default function LeftColumnClient({
   spellDefinitions,
   initialSpellState,
 }: LeftColumnProps) {
-  // Shared character stats — both CharacterSheet and CombatPanel read/write these
+  // Shared character stats — both TabbedStatsPanel and CombatPanel read/write these
   const [currentStats, setCurrentStats] = useState(initialStatsProp)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
 
@@ -249,8 +243,8 @@ export default function LeftColumnClient({
   )
 
   const panelNodes: Record<PanelId, React.ReactNode> = {
-    'character-sheet': (
-      <SessionClient
+    'tabbed-stats': (
+      <TabbedStatsPanel
         sessionId={sessionId}
         stats={currentStats}
         initialStats={currentInitialStats}
@@ -260,6 +254,9 @@ export default function LeftColumnClient({
         primaryHealthStat={primaryHealthStat}
         creationRolls={creationRolls}
         onStatsChange={handleStatsChange}
+        initialItems={initialItems}
+        spellDefinitions={spellDefinitions}
+        initialSpellState={initialSpellState}
       />
     ),
     'dice-roller': <DiceRoller defaultDice={defaultDice} />,
@@ -270,21 +267,7 @@ export default function LeftColumnClient({
         initialHistory={initialHistory}
       />
     ),
-    inventory: (
-      <InventoryPanel
-        sessionId={sessionId}
-        gameSystemId={gameSystemId}
-        initialItems={initialItems}
-      />
-    ),
     notes: <Notes sessionId={sessionId} initialNotes={initialNotes} />,
-    spells: (
-      <SpellsPanel
-        sessionId={sessionId}
-        spells={spellDefinitions}
-        initialSpellState={initialSpellState}
-      />
-    ),
   }
 
   return (
