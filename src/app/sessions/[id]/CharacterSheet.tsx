@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { StatDefinition } from '../../../lib/game-systems/types'
 import { xpThresholdProgress } from '../../../lib/game-systems/grail-quest'
 
@@ -35,6 +35,15 @@ export default function CharacterSheet({
   const [statInputs, setStatInputs] = useState<Record<string, string>>({})
   const [initialStatInputs, setInitialStatInputs] = useState<Record<string, string>>({})
   const [showGameOverModal, setShowGameOverModal] = useState(false)
+
+  // Sync when parent (LeftColumnClient) updates shared stats — e.g. after a CombatPanel round
+  useEffect(() => {
+    setCurrentStats(initialCurrentStats)
+  }, [initialCurrentStats])
+
+  useEffect(() => {
+    setCurrentInitialStats(initialStats)
+  }, [initialStats])
 
   // Weapon form state
   const equippedWeapon = currentStats['weapon'] as EquipmentItem | undefined

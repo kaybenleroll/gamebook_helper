@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import SessionClient from './SessionClient'
+import CombatPanel from './CombatPanel'
 import DiceRoller from './DiceRoller'
 import SectionTracker from './SectionTracker'
 import InventoryPanel from './InventoryPanel'
@@ -169,8 +170,8 @@ export interface LeftColumnProps {
 export default function LeftColumnClient({
   sessionId,
   savedPanelOrder,
-  stats,
-  initialStats,
+  stats: initialStatsProp,
+  initialStats: initialInitialStats,
   statDefs,
   gameSystemId,
   isGameOver,
@@ -187,6 +188,20 @@ export default function LeftColumnClient({
   spellDefinitions,
   initialSpellState,
 }: LeftColumnProps) {
+  // Shared character stats — both CharacterSheet and CombatPanel read/write these
+  const [currentStats, setCurrentStats] = useState(initialStatsProp)
+  const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
+
+  function handleStatsChange(
+    newStats: Record<string, unknown>,
+    newInitialStats: Record<string, unknown>,
+  ) {
+    setCurrentStats(newStats)
+    setCurrentInitialStats(newInitialStats)
+  }
+
+  const [combatOpen, setCombatOpen] = useState(false)
+
   const parsed = savedPanelOrder
     ? (() => {
         try {
@@ -233,16 +248,14 @@ export default function LeftColumnClient({
     'character-sheet': (
       <SessionClient
         sessionId={sessionId}
-        stats={stats}
-        initialStats={initialStats}
+        stats={currentStats}
+        initialStats={currentInitialStats}
         statDefs={statDefs}
         gameSystemId={gameSystemId}
         isGameOver={isGameOver}
-        initialCombat={initialCombat}
-        enemyStatFields={enemyStatFields}
         primaryHealthStat={primaryHealthStat}
-        primaryEnemyHealthStat={primaryEnemyHealthStat}
         creationRolls={creationRolls}
+        onStatsChange={handleStatsChange}
       />
     ),
     'dice-roller': <DiceRoller defaultDice={defaultDice} />,
@@ -271,21 +284,60 @@ export default function LeftColumnClient({
   }
 
   return (
-    <DndContext
-      id="panel-sort"
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={order} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-2 gap-4">
-          {order.map((id) => (
-            <SortableItem key={id} id={id} span={PANEL_SPANS[id]}>
-              {panelNodes[id]}
-            </SortableItem>
-          ))}
+    <div>
+      <DndContext
+        id="panel-sort"
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={order} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-2 gap-4">
+            {order.map((id) => (
+              <SortableItem key={id} id={id} span={PANEL_SPANS[id]}>
+                {panelNodes[id]}
+              </SortableItem>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {enemyStatFields && !isGameOver && (
+        <div className="mt-4">
+          <button
+            onClick={() => setCombatOpen(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+            type="button"
+          >
+            Start Combat
+          </button>
         </div>
-      </SortableContext>
-    </DndContext>
+      )}
+
+      {combatOpen && enemyStatFields && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative">
+            <button
+              onClick={() => setCombatOpen(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              aria-label="Close combat"
+              type="button"
+            >✕</button>
+            <CombatPanel
+              sessionId={sessionId}
+              initialCombat={initialCombat}
+              enemyStatFields={enemyStatFields}
+              characterStats={currentStats}
+              initialStats={currentInitialStats}
+              isGameOver={isGameOver}
+              onStatsChange={handleStatsChange}
+              primaryHealthStat={primaryHealthStat}
+              primaryEnemyHealthStat={primaryEnemyHealthStat}
+              onCombatEnd={() => setCombatOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
