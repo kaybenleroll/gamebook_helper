@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { StatDefinition } from '../../../lib/game-systems/types'
 import { xpThresholdProgress } from '../../../lib/game-systems/grail-quest'
 
@@ -35,6 +35,8 @@ export default function CharacterSheet({
   const [statInputs, setStatInputs] = useState<Record<string, string>>({})
   const [initialStatInputs, setInitialStatInputs] = useState<Record<string, string>>({})
   const [showGameOverModal, setShowGameOverModal] = useState(false)
+  const [editingCell, setEditingCell] = useState<{ id: string; value: string } | null>(null)
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   // Sync when parent (LeftColumnClient) updates shared stats — e.g. after a CombatPanel round
   useEffect(() => {
@@ -98,6 +100,30 @@ export default function CharacterSheet({
     }
   }
 
+  // Auto-focus the inline edit input when it mounts
+  useEffect(() => {
+    if (editingCell) {
+      editInputRef.current?.focus()
+    }
+  }, [editingCell])
+
+  function startEdit(statKey: string, currentValue: number) {
+    setEditingCell({ id: statKey, value: String(currentValue) })
+  }
+
+  function commitEdit(statKey: string, originalValue: number) {
+    if (!editingCell) return
+    const trimmed = editingCell.value.trim()
+    if (trimmed !== '' && !isNaN(Number(trimmed))) {
+      patchCharacter({ stat: statKey, value: Number(trimmed), target: 'current' })
+    }
+    setEditingCell(null)
+  }
+
+  function cancelEdit() {
+    setEditingCell(null)
+  }
+
   async function saveEquipment(slot: 'weapon' | 'armour', name: string, value: string) {
     const numValue = parseInt(value, 10)
     if (!name.trim() || isNaN(numValue)) return
@@ -121,9 +147,9 @@ export default function CharacterSheet({
       <table className="border-collapse w-full max-w-md">
         <thead>
           <tr className="text-left border-b">
-            <th className="py-2 pr-4 font-medium">Stat</th>
-            <th className="py-2 pr-4 font-medium text-center">Current</th>
-            <th className="py-2 font-medium text-right">Starting</th>
+            <th className="py-2 pr-4 font-body text-text-muted font-medium">Stat</th>
+            <th className="py-2 pr-4 font-body text-text-muted font-medium text-center">Current</th>
+            <th className="py-2 font-body text-text-muted font-medium text-right">Starting</th>
           </tr>
         </thead>
         <tbody>
@@ -143,9 +169,14 @@ export default function CharacterSheet({
               stat.max !== undefined
                 ? current >= Math.min(stat.max, startingMax)
                 : false
+            const isLPStat = stat.key === primaryHealthStat && stat.max !== undefined
+            const lpPercent = isLPStat && startingMax > 0
+              ? Math.max(0, Math.min(100, (current / startingMax) * 100))
+              : 0
+            const isEditing = editingCell?.id === stat.key
             return (
               <tr key={stat.key} className="border-b last:border-0">
-                <td className="py-2 pr-4">{stat.label}</td>
+                <td className="py-2 pr-4 font-body text-text-muted">{stat.label}</td>
                 <td className="py-2 pr-4">
                   <div className="flex items-center justify-center gap-1">
                     <button
@@ -164,7 +195,29 @@ export default function CharacterSheet({
                     >
                       −
                     </button>
-                    <span className="font-mono w-8 text-center">{current}</span>
+                    {isEditing ? (
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        value={editingCell.value}
+                        onChange={(e) => setEditingCell({ id: stat.key, value: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitEdit(stat.key, current)
+                          if (e.key === 'Escape') cancelEdit()
+                        }}
+                        onBlur={() => commitEdit(stat.key, current)}
+                        className="font-mono text-accent-blue w-16 border-b border-accent-blue bg-transparent outline-none text-right"
+                        aria-label={`Edit ${stat.label}`}
+                      />
+                    ) : (
+                      <span
+                        className="font-mono text-accent-blue w-8 text-center cursor-pointer hover:underline"
+                        onClick={() => !isGameOver && startEdit(stat.key, current)}
+                        title="Click to edit"
+                      >
+                        {current}
+                      </span>
+                    )}
                     <button
                       onClick={() => adjust(stat.key, +1)}
                       disabled={isGameOver || atMax}
@@ -203,6 +256,14 @@ export default function CharacterSheet({
                       Apply
                     </button>
                   </div>
+                  {isLPStat && (
+                    <div className="w-full bg-panel-border rounded-full h-2 mt-1 mb-3">
+                      <div
+                        className="bg-progress-fill h-2 rounded-full transition-all"
+                        style={{ width: `${lpPercent}%` }}
+                      />
+                    </div>
+                  )}
                   {isGrailQuest && stat.key === 'experiencePoints' && (
                     <div className="text-xs text-gray-500 text-center mt-1">
                       {(() => {
@@ -212,10 +273,10 @@ export default function CharacterSheet({
                     </div>
                   )}
                 </td>
-                <td className="py-2 text-right font-mono text-gray-500">
+                <td className="py-2 text-right font-mono text-accent-blue">
                   {stat.max !== undefined ? (
                     <div className="flex items-center justify-end gap-1">
-                      <span>{startingMax}</span>
+                      <span className="font-mono text-accent-blue">{startingMax}</span>
                       <input
                         type="text"
                         value={initialStatInputs[stat.key] ?? ''}
@@ -242,7 +303,7 @@ export default function CharacterSheet({
                       </button>
                     </div>
                   ) : (
-                    '—'
+                    <span className="font-mono text-accent-blue">—</span>
                   )}
                 </td>
               </tr>
