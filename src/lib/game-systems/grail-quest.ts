@@ -93,7 +93,7 @@ export const grailQuestCombat: CombatModule = {
     { key: 'enemyThreshold', label: 'Enemy hit threshold', type: 'number', required: false, default: 6 },
     { key: 'playerThreshold', label: 'Your hit threshold', type: 'number', required: false, default: 4 },
     { key: 'enemyDamageBonus', label: 'Enemy Damage Bonus', type: 'number', required: false, default: 0 },
-    { key: 'playerDamageBonus', label: 'Player Damage Bonus', type: 'number', required: false, default: 0 },
+    { key: 'playerDamageBonus', label: 'Player Damage Bonus', type: 'number', required: false, default: 5 },
   ],
   primaryEnemyHealthStat: 'lifePoints',
 
