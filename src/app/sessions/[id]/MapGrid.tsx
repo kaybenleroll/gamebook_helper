@@ -723,6 +723,8 @@ export default function MapGrid({ sessionId }: Props) {
                       <option value="W">W</option>
                       <option value="up">Up</option>
                       <option value="down">Down</option>
+                      <option value="left">Left</option>
+                      <option value="right">Right</option>
                     </select>
                   </div>
 

@@ -122,6 +122,24 @@ export default function DirectionPicker({
           <div />
         </div>
 
+        {/* Left / Right row */}
+        <div className="flex gap-2 w-full justify-center">
+          <button
+            className={btnBase}
+            aria-label="Left"
+            onClick={() => handleSelect('left')}
+          >
+            ◄ left
+          </button>
+          <button
+            className={btnBase}
+            aria-label="Right"
+            onClick={() => handleSelect('right')}
+          >
+            right ►
+          </button>
+        </div>
+
         {/* Bottom row */}
         <div className="flex gap-2 mt-1">
           {hasParent && (

@@ -78,7 +78,7 @@ export const connectionTypeEnum = [
 ] as const
 export type ConnectionType = (typeof connectionTypeEnum)[number]
 
-export const directionEnum = ['N', 'S', 'E', 'W', 'up', 'down'] as const
+export const directionEnum = ['N', 'S', 'E', 'W', 'up', 'down', 'left', 'right'] as const
 export type Direction = (typeof directionEnum)[number]
 
 export const maps = sqliteTable(
