@@ -116,7 +116,7 @@ export default function CharacterSheet({
   const isGrailQuest = gameSystemId === 'grail-quest'
 
   return (
-    <section className="bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
+    <section>
       <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Character Sheet</h2>
       <table className="border-collapse w-full max-w-md">
         <thead>
