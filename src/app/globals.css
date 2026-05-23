@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
-:root {
+@theme inline {
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@theme {
   --color-canvas-bg: #FDFAF4;
   --color-panel-bg: #FFFFFF;
   --color-panel-border: #D4C5A9;
@@ -9,19 +15,4 @@
   --color-text-primary: #2C2416;
   --color-text-muted: #7A6A52;
   --color-progress-fill: #7B9E6B;
-}
-
-@theme inline {
-  --font-heading: var(--font-heading);
-  --font-body: var(--font-body);
-  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-
-  --color-canvas-bg: var(--color-canvas-bg);
-  --color-panel-bg: var(--color-panel-bg);
-  --color-panel-border: var(--color-panel-border);
-  --color-header-accent: var(--color-header-accent);
-  --color-accent-blue: var(--color-accent-blue);
-  --color-text-primary: var(--color-text-primary);
-  --color-text-muted: var(--color-text-muted);
-  --color-progress-fill: var(--color-progress-fill);
 }
