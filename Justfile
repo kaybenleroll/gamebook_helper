@@ -38,6 +38,10 @@ db-reset:
 db-seed:
   podman exec gamebook-app npm run db:seed
 
+# Apply schema changes without full reset (non-destructive)
+db-push:
+  podman exec gamebook-app npm run db:push
+
 # Build demo with npm ci from scratch (catches real regressions)
 demo-build:
   podman-compose build --no-cache gamebook-app
