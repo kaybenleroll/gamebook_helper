@@ -56,10 +56,11 @@ export async function PATCH(
       name?: unknown
       quantity?: unknown
       isSpecial?: unknown
+      itemType?: unknown
       doseCount?: unknown
     }
 
-    const { name, quantity, isSpecial, doseCount } = body
+    const { name, quantity, isSpecial, itemType, doseCount } = body
 
     if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
       return NextResponse.json(
@@ -82,6 +83,13 @@ export async function PATCH(
       )
     }
 
+    if (itemType !== undefined && (typeof itemType !== 'string' || itemType.trim() === '')) {
+      return NextResponse.json(
+        { error: 'itemType must be a non-empty string' },
+        { status: 400 },
+      )
+    }
+
     if (doseCount !== undefined && (typeof doseCount !== 'number' || !Number.isInteger(doseCount) || doseCount < 0)) {
       return NextResponse.json(
         { error: 'doseCount must be a non-negative integer' },
@@ -89,9 +97,9 @@ export async function PATCH(
       )
     }
 
-    if (name === undefined && quantity === undefined && isSpecial === undefined && doseCount === undefined) {
+    if (name === undefined && quantity === undefined && isSpecial === undefined && itemType === undefined && doseCount === undefined) {
       return NextResponse.json(
-        { error: 'At least one field (name, quantity, isSpecial, doseCount) must be provided' },
+        { error: 'At least one field (name, quantity, isSpecial, itemType, doseCount) must be provided' },
         { status: 400 },
       )
     }
@@ -103,10 +111,11 @@ export async function PATCH(
       return new NextResponse(null, { status: 204 })
     }
 
-    const updateFields: { name?: string; quantity?: number; isSpecial?: boolean; doseCount?: number } = {}
+    const updateFields: { name?: string; quantity?: number; isSpecial?: boolean; itemType?: string; doseCount?: number } = {}
     if (name !== undefined) updateFields.name = (name as string).trim()
     if (quantity !== undefined) updateFields.quantity = quantity as number
     if (isSpecial !== undefined) updateFields.isSpecial = isSpecial as boolean
+    if (itemType !== undefined) updateFields.itemType = (itemType as string).trim()
     if (doseCount !== undefined) updateFields.doseCount = doseCount as number
 
     db.update(inventoryItems)
