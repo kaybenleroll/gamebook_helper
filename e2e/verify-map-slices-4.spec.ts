@@ -10,7 +10,7 @@ test.describe('Map slices 4a/4b/4c', () => {
   test.beforeAll(async ({ request }) => {
     // Create a dedicated session for this test suite.
     const sessRes = await request.post(`${BASE}/api/sessions`, {
-      data: { gameSystemId: 'grail-quest', bookTitle: 'Verify Map Slices 4 E2E Test' },
+      data: { gameSystemId: 'grail-quest', bookTitle: '[test] Verify Map Slices 4' },
     })
     expect(sessRes.status()).toBe(201)
     const { sessionId: sid } = await sessRes.json()

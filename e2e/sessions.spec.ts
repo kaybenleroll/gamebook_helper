@@ -11,7 +11,7 @@ test.describe('sessions list with data', () => {
   test.beforeAll(async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.post('/api/sessions', {
-      data: { bookTitle: 'E2E Fixture Session', gameSystemId: 'grail-quest' },
+      data: { bookTitle: '[test] E2E Fixture Session', gameSystemId: 'grail-quest' },
     })
     sessionId = (await res.json()).sessionId
     await ctx.dispose()
@@ -53,7 +53,7 @@ test.describe('sessions list with data', () => {
 test('delete removes session from list immediately', async ({ page }) => {
   // Create a fresh session to safely delete
   const createRes = await page.request.post('/api/sessions', {
-    data: { bookTitle: 'Playwright Test Delete', gameSystemId: 'grail-quest' },
+    data: { bookTitle: '[test] Playwright Test Delete', gameSystemId: 'grail-quest' },
   })
   expect(createRes.status()).toBe(201)
   const { sessionId } = await createRes.json() as { sessionId: number }
@@ -71,7 +71,7 @@ test('delete removes session from list immediately', async ({ page }) => {
 
   // Type exact title to enable delete
   const input = page.getByPlaceholder('Type book title here')
-  await input.fill('Playwright Test Delete')
+  await input.fill('[test] Playwright Test Delete')
 
   const confirmDeleteButton = page.getByRole('button', { name: /^Delete$/ })
   await expect(confirmDeleteButton).toBeEnabled()
