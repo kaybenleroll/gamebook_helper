@@ -33,7 +33,7 @@ export type PanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_SPANS: Record<PanelId, 1 | 2> = {
   'tabbed-stats': 2,
-  'dice-roller': 1,
+  'dice-roller': 2,
   notes: 2,
 }
 

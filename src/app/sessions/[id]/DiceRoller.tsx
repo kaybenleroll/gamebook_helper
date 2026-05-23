@@ -40,12 +40,9 @@ interface RollResult {
   modifier: number
 }
 
-function formatBreakdown(rolls: number[], modifier: number): string | null {
+function formatIndividualRolls(rolls: number[]): string | null {
   if (rolls.length <= 1) return null
-  const parts = rolls.join(' + ')
-  if (modifier > 0) return `${parts} + ${modifier}`
-  if (modifier < 0) return `${parts} - ${Math.abs(modifier)}`
-  return parts
+  return `(${rolls.join(', ')})`
 }
 
 export default function DiceRoller({ defaultDice }: Props) {
@@ -79,22 +76,14 @@ export default function DiceRoller({ defaultDice }: Props) {
   }
 
   const defaultFormula = formatDiceExpr(defaultDice)
-  const breakdown = rollResult !== null
-    ? formatBreakdown(rollResult.rolls, rollResult.modifier)
+  const individualRolls = rollResult !== null
+    ? formatIndividualRolls(rollResult.rolls)
     : null
 
   return (
     <section className="mt-6 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
       <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Dice Roller</h2>
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => roll(defaultFormula, defaultDice.modifier)}
-          disabled={rolling !== null}
-          className="bg-header-accent hover:opacity-90 active:scale-95 transition-transform text-white font-heading text-lg px-6 py-2 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
-        >
-          <DiceIcon />
-          {rolling === defaultFormula ? 'Rolling…' : `Roll ${defaultFormula}`}
-        </button>
         <button
           onClick={() => roll('1d6', 0)}
           disabled={rolling !== null}
@@ -103,16 +92,20 @@ export default function DiceRoller({ defaultDice }: Props) {
           <DiceIcon />
           {rolling === '1d6' ? 'Rolling…' : 'Roll 1d6'}
         </button>
+        <button
+          onClick={() => roll(defaultFormula, defaultDice.modifier)}
+          disabled={rolling !== null}
+          className="bg-header-accent hover:opacity-90 active:scale-95 transition-transform text-white font-heading text-lg px-6 py-2 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
+        >
+          <DiceIcon />
+          {rolling === defaultFormula ? 'Rolling…' : `Roll ${defaultFormula}`}
+        </button>
         {rollResult !== null && !error && (
-          <div key={rollCount} className="flex flex-col items-center animate-fade-in">
-            {breakdown !== null && (
-              <span className="font-mono text-accent-blue text-sm opacity-75">
-                {breakdown} =
-              </span>
+          <div key={rollCount} className="flex-1 flex items-center justify-center gap-3 animate-fade-in">
+            {individualRolls !== null && (
+              <span className="font-mono text-accent-blue text-lg opacity-60">{individualRolls}</span>
             )}
-            <span className="font-mono text-accent-blue text-3xl font-bold">
-              {rollResult.total}
-            </span>
+            <span className="font-mono text-accent-blue text-4xl font-bold">{rollResult.total}</span>
           </div>
         )}
         {error && (
