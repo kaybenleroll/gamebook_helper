@@ -38,6 +38,7 @@ interface Props {
   onStatsChange: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
   primaryHealthStat: string
   primaryEnemyHealthStat: string
+  onCombatEnd?: () => void
 }
 
 interface EnemyFormState {
@@ -92,6 +93,7 @@ export default function CombatPanel({
   onStatsChange,
   primaryHealthStat,
   primaryEnemyHealthStat,
+  onCombatEnd,
 }: Props) {
   const [combat, setCombat] = useState<CombatData | null>(initialCombat)
   const [showStartForm, setShowStartForm] = useState(false)
@@ -209,6 +211,9 @@ export default function CombatPanel({
         if (data.xpPrompt) {
           setShowXpModal(true)
         }
+        if (data.combat.outcome !== 'in_progress') {
+          onCombatEnd?.()
+        }
       } else {
         const err = (await res.json()) as { error?: string }
         setRoundError(err.error ?? 'Failed to resolve round')
@@ -279,6 +284,9 @@ export default function CombatPanel({
         onStatsChange(data.characterStats, data.characterInitialStats)
         setPendingResult(null)
         if (data.xpPrompt) setShowXpModal(true)
+        if (data.combat.outcome !== 'in_progress') {
+          onCombatEnd?.()
+        }
       } else {
         const err = (await res.json()) as { error?: string }
         setRoundError(err.error ?? 'Failed to commit overrides')
@@ -300,6 +308,7 @@ export default function CombatPanel({
     if (res.ok) {
       const data = (await res.json()) as CombatData
       setCombat(data)
+      onCombatEnd?.()
     }
   }
 

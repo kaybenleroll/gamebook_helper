@@ -28,7 +28,6 @@ import type { CreationRolls } from '../../../lib/db/schema'
 
 export const PANEL_IDS = [
   'character-sheet',
-  'combat',
   'dice-roller',
   'section-tracker',
   'inventory',
@@ -40,7 +39,6 @@ export type PanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_SPANS: Record<PanelId, 1 | 2> = {
   'character-sheet': 2,
-  'combat': 2,
   'dice-roller': 1,
   'section-tracker': 1,
   inventory: 2,
@@ -202,6 +200,8 @@ export default function LeftColumnClient({
     setCurrentInitialStats(newInitialStats)
   }
 
+  const [combatOpen, setCombatOpen] = useState(false)
+
   const parsed = savedPanelOrder
     ? (() => {
         try {
@@ -258,19 +258,6 @@ export default function LeftColumnClient({
         onStatsChange={handleStatsChange}
       />
     ),
-    'combat': enemyStatFields ? (
-      <CombatPanel
-        sessionId={sessionId}
-        initialCombat={initialCombat}
-        enemyStatFields={enemyStatFields}
-        characterStats={currentStats}
-        initialStats={currentInitialStats}
-        isGameOver={isGameOver}
-        onStatsChange={handleStatsChange}
-        primaryHealthStat={primaryHealthStat}
-        primaryEnemyHealthStat={primaryEnemyHealthStat}
-      />
-    ) : null,
     'dice-roller': <DiceRoller defaultDice={defaultDice} />,
     'section-tracker': (
       <SectionTracker
@@ -297,21 +284,60 @@ export default function LeftColumnClient({
   }
 
   return (
-    <DndContext
-      id="panel-sort"
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={order} strategy={rectSortingStrategy}>
-        <div className="grid grid-cols-2 gap-4">
-          {order.map((id) => (
-            <SortableItem key={id} id={id} span={PANEL_SPANS[id]}>
-              {panelNodes[id]}
-            </SortableItem>
-          ))}
+    <div>
+      <DndContext
+        id="panel-sort"
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={order} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-2 gap-4">
+            {order.map((id) => (
+              <SortableItem key={id} id={id} span={PANEL_SPANS[id]}>
+                {panelNodes[id]}
+              </SortableItem>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {enemyStatFields && !isGameOver && (
+        <div className="mt-4">
+          <button
+            onClick={() => setCombatOpen(true)}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+            type="button"
+          >
+            Start Combat
+          </button>
         </div>
-      </SortableContext>
-    </DndContext>
+      )}
+
+      {combatOpen && enemyStatFields && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 relative">
+            <button
+              onClick={() => setCombatOpen(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              aria-label="Close combat"
+              type="button"
+            >✕</button>
+            <CombatPanel
+              sessionId={sessionId}
+              initialCombat={initialCombat}
+              enemyStatFields={enemyStatFields}
+              characterStats={currentStats}
+              initialStats={currentInitialStats}
+              isGameOver={isGameOver}
+              onStatsChange={handleStatsChange}
+              primaryHealthStat={primaryHealthStat}
+              primaryEnemyHealthStat={primaryEnemyHealthStat}
+              onCombatEnd={() => setCombatOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
