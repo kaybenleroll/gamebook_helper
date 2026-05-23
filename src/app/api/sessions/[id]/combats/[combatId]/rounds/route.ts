@@ -73,7 +73,7 @@ export async function POST(
 
     const characterStats = character.stats as Record<string, unknown>
 
-    // Resolve round via game system
+    // Resolve round via game system — all combat maths live in the game-system module
     const result = gameSystem.combat.resolveRound({
       enemyStats: combat.enemyStats,
       enemyState: combat.enemyState,
@@ -83,42 +83,15 @@ export async function POST(
       combatModifiers,
     })
 
-    // Apply enemyDamageBonus from combat metadata when enemy dealt damage
-    const combatMetadata = combat.metadata as Record<string, unknown>
-    const enemyDamageBonus =
-      typeof combatMetadata['enemyDamageBonus'] === 'number'
-        ? (combatMetadata['enemyDamageBonus'] as number)
-        : 0
-    const playerArmourReduction =
-      typeof combatMetadata['playerArmourReduction'] === 'number'
-        ? (combatMetadata['playerArmourReduction'] as number)
-        : 0
-    const baseDamageTaken = result.damageTaken > 0
-      ? Math.max(0, 2 + enemyDamageBonus - playerArmourReduction)
-      : result.damageTaken
-
-    // Apply playerDamageBonus and enemyArmourReduction from combat metadata when player dealt damage
-    const playerDamageBonus =
-      typeof combatMetadata['playerDamageBonus'] === 'number'
-        ? (combatMetadata['playerDamageBonus'] as number)
-        : 0
-    const enemyArmourReduction =
-      typeof combatMetadata['enemyArmourReduction'] === 'number'
-        ? (combatMetadata['enemyArmourReduction'] as number)
-        : 0
-    const baseDamageDealt = result.damageDealt > 0
-      ? Math.max(0, 2 + playerDamageBonus - enemyArmourReduction)
-      : result.damageDealt
-
     // Apply overrides if present
     const finalDamageDealt =
-      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : baseDamageDealt
+      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : result.damageDealt
     const finalDamageTaken =
-      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : baseDamageTaken
+      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : result.damageTaken
 
-    // Recalculate enemy state with override damage or playerDamageBonus
+    // Recalculate enemy state if damage dealt was overridden
     let finalEnemyState = result.enemyState as Record<string, unknown>
-    if (typeof overrides.damageDealt === 'number' || baseDamageDealt !== result.damageDealt) {
+    if (typeof overrides.damageDealt === 'number') {
       const originalEnemyState = combat.enemyState as Record<string, unknown>
       const currentLifePoints =
         typeof originalEnemyState['currentLifePoints'] === 'number'
@@ -130,13 +103,10 @@ export async function POST(
       }
     }
 
-    // Recalculate character deltas with enemy damage bonus and any override
+    // Recalculate character deltas if damage taken was overridden
     const finalCharacterDeltas: Record<string, number> = { ...result.characterDeltas }
     if (typeof overrides.damageTaken === 'number') {
       finalCharacterDeltas['lifePoints'] = -overrides.damageTaken
-    } else if (baseDamageTaken !== result.damageTaken) {
-      // enemyDamageBonus was applied — update the delta accordingly
-      finalCharacterDeltas['lifePoints'] = -baseDamageTaken
     }
 
     // Recalculate outcome with final values
@@ -150,11 +120,16 @@ export async function POST(
         : 0
     const playerNewLp = playerCurrentLp + (finalCharacterDeltas['lifePoints'] ?? 0)
 
-    let finalOutcome: CombatOutcomeValue | null = null
-    if (enemyCurrentStamina <= 0) {
-      finalOutcome = 'player_won'
-    } else if (playerNewLp <= 0) {
-      finalOutcome = 'player_lost'
+    let finalOutcome: CombatOutcomeValue | null = result.outcome as CombatOutcomeValue | null
+    if (typeof overrides.damageDealt === 'number' || typeof overrides.damageTaken === 'number') {
+      // Re-derive outcome when overrides change the damage figures
+      if (enemyCurrentStamina <= 0) {
+        finalOutcome = 'player_won'
+      } else if (playerNewLp <= 0) {
+        finalOutcome = 'player_lost'
+      } else {
+        finalOutcome = null
+      }
     }
 
     // Pre-compute updated character stats (needed inside transaction and for response)

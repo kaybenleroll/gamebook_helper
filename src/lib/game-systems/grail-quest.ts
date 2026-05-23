@@ -192,46 +192,67 @@ export const grailQuestCombat: CombatModule = {
     const enemyState = args.enemyState as GqEnemyState
     const characterStats = args.characterStats as Record<string, unknown>
     const mods = args.combatModifiers as Record<string, unknown>
+    const metadataRecord = args.metadata as GqMetadata
 
     const currentLifePoints =
       typeof enemyState.currentLifePoints === 'number' ? enemyState.currentLifePoints : 0
     const playerCurrentLp =
       typeof characterStats['lifePoints'] === 'number' ? (characterStats['lifePoints'] as number) : 0
 
-    // Modifiers
-    const damageBonus =
-      typeof mods['damageBonus'] === 'number' ? (mods['damageBonus'] as number) : 0
+    // Combat modifiers (round-level overrides)
     const playerThresholdOverride =
       typeof mods['playerThreshold'] === 'number' ? (mods['playerThreshold'] as number) : null
 
-    const metadataRecord = args.metadata as GqMetadata
+    // Thresholds — metadata holds values set at combat start; mods can override
     const metadataPlayerThreshold =
-      typeof metadataRecord?.playerThreshold === 'number' ? metadataRecord.playerThreshold : 6
+      typeof metadataRecord?.playerThreshold === 'number' ? metadataRecord.playerThreshold : 4
+    const enemyThresholdFromStats =
+      typeof (args.enemyStats as any)?.enemyThreshold === 'number'
+        ? (args.enemyStats as any).enemyThreshold as number
+        : 6
+
+    // Damage bonuses and armour reductions — sourced from combat metadata
+    const playerDamageBonus =
+      typeof metadataRecord?.playerDamageBonus === 'number'
+        ? Math.max(0, metadataRecord.playerDamageBonus)
+        : 0
+    const enemyDamageBonus =
+      typeof metadataRecord?.enemyDamageBonus === 'number'
+        ? Math.max(0, metadataRecord.enemyDamageBonus)
+        : 0
+    const playerArmourReduction =
+      typeof metadataRecord?.playerArmourReduction === 'number'
+        ? Math.max(0, metadataRecord.playerArmourReduction)
+        : 0
+    const enemyArmourReduction =
+      typeof metadataRecord?.enemyArmourReduction === 'number'
+        ? Math.max(0, metadataRecord.enemyArmourReduction)
+        : 0
 
     const riskyAttack = args.chosenOptions['riskyAttack'] === true
 
-    // Player attack — roll 2d6; hit if ≥ threshold; damage = roll − 6
+    // Player attack — roll 2d6; hit if strictly greater than threshold
+    // damage = (roll − threshold) + playerDamageBonus − enemyArmourReduction, min 0
     const playerDice = rollDice(2, 6)
     const playerRoll = playerDice.reduce((s, r) => s + r, 0)
     const basePlayerThreshold = playerThresholdOverride ?? metadataPlayerThreshold
     const playerThreshold = riskyAttack ? basePlayerThreshold + 2 : basePlayerThreshold
-    const playerHit = playerRoll >= playerThreshold
-    const basePlayerDamage = playerHit ? Math.max(0, playerRoll - 6) : 0
+    const playerHit = playerRoll > playerThreshold
     let damageDealt = 0
     if (playerHit) {
-      const raw = basePlayerDamage + damageBonus
-      damageDealt = riskyAttack ? raw * 2 : raw
+      const baseDamage = Math.max(0, (playerRoll - playerThreshold) + playerDamageBonus - enemyArmourReduction)
+      damageDealt = riskyAttack ? baseDamage * 2 : baseDamage
     }
 
-    // Enemy attack — roll 2d6; hit if ≥ enemyThreshold (default 6); damage = roll − 6
+    // Enemy attack — roll 2d6; hit if strictly greater than threshold
+    // damage = (roll − threshold) + enemyDamageBonus − playerArmourReduction, min 0
     const enemyDice = rollDice(2, 6)
     const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
-    const enemyThreshold =
-      typeof (args.enemyStats as any)?.enemyThreshold === 'number'
-        ? (args.enemyStats as any).enemyThreshold as number
-        : 6
-    const enemyHit = enemyRoll >= enemyThreshold
-    const damageTaken = enemyHit ? Math.max(0, enemyRoll - 6) : 0
+    const enemyThreshold = enemyThresholdFromStats
+    const enemyHit = enemyRoll > enemyThreshold
+    const damageTaken = enemyHit
+      ? Math.max(0, (enemyRoll - enemyThreshold) + enemyDamageBonus - playerArmourReduction)
+      : 0
 
     // Update enemy state
     const newCurrentLifePoints = Math.max(0, currentLifePoints - damageDealt)
@@ -239,7 +260,7 @@ export const grailQuestCombat: CombatModule = {
 
     // Determine outcome
     let outcome: CombatOutcome | null = null
-    if (newCurrentLifePoints <= 5) {
+    if (newCurrentLifePoints <= 0) {
       outcome = 'player_won'
     } else if (playerCurrentLp - damageTaken <= 0) {
       outcome = 'player_lost'
@@ -298,11 +319,11 @@ function buildNarrative(info: {
 }): string {
   const diceStr = (dice: number[]) => `[${dice.join('+')}]=${dice.reduce((s, r) => s + r, 0)}`
   const playerPart = info.playerHit
-    ? `Your attack ${diceStr(info.playerDice)} (≥${info.playerThreshold}, hit${info.riskyAttack ? ', risky' : ''}), dealt ${info.damageDealt} damage.`
-    : `Your attack ${diceStr(info.playerDice)} (≥${info.playerThreshold} needed, miss).`
+    ? `Your attack ${diceStr(info.playerDice)} (>${info.playerThreshold}, hit${info.riskyAttack ? ', risky' : ''}), dealt ${info.damageDealt} damage.`
+    : `Your attack ${diceStr(info.playerDice)} (>${info.playerThreshold} needed, miss).`
   const enemyPart = info.enemyHit
-    ? `Enemy ${diceStr(info.enemyDice)} (≥${info.enemyThreshold}, hit), dealt ${info.damageTaken} damage.`
-    : `Enemy ${diceStr(info.enemyDice)} (≥${info.enemyThreshold} needed, miss).`
+    ? `Enemy ${diceStr(info.enemyDice)} (>${info.enemyThreshold}, hit), dealt ${info.damageTaken} damage.`
+    : `Enemy ${diceStr(info.enemyDice)} (>${info.enemyThreshold} needed, miss).`
   return `${playerPart} ${enemyPart}`
 }
 
