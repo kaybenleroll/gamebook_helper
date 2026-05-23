@@ -212,6 +212,10 @@ export const inventoryItems = sqliteTable(
     name: text('name').notNull(),
     quantity: integer('quantity').notNull().default(1),
     isSpecial: integer('is_special', { mode: 'boolean' }).notNull().default(false),
+    itemType: text('item_type').notNull().default('item'),
+    doseCount: integer('dose_count'),
+    healAmount: integer('heal_amount'),
+    healDice: text('heal_dice'),
     createdAt: integer('created_at', { mode: 'timestamp' })
       .notNull()
       .default(sql`(unixepoch())`),

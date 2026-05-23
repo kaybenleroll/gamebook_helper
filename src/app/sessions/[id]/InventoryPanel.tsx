@@ -10,6 +10,10 @@ interface InventoryItem {
   name: string
   quantity: number
   isSpecial: boolean
+  itemType: string
+  doseCount: number | null
+  healAmount: number | null
+  healDice: string | null
   createdAt: string
 }
 
@@ -79,6 +83,25 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
     }
   }
 
+  async function useConsumable(item: InventoryItem) {
+    if (item.doseCount === null || item.doseCount <= 0) return
+
+    const newDoseCount = item.doseCount - 1
+
+    const res = await fetch(`/api/sessions/${sessionId}/inventory/${item.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ doseCount: newDoseCount }),
+    })
+
+    if (res.status === 204) {
+      setItems((prev) => prev.filter((i) => i.id !== item.id))
+    } else if (res.ok) {
+      const updated = (await res.json()) as InventoryItem
+      setItems((prev) => prev.map((i) => (i.id === item.id ? updated : i)))
+    }
+  }
+
   function applyQuantityEdit(itemId: number) {
     const raw = editingQuantity[itemId]
     if (raw === undefined) return
@@ -91,6 +114,16 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
       delete next[itemId]
       return next
     })
+  }
+
+  function isConsumable(item: InventoryItem) {
+    return item.itemType === 'potion' || item.itemType === 'salve'
+  }
+
+  function healDescription(item: InventoryItem) {
+    if (item.healDice) return item.healDice
+    if (item.healAmount !== null) return `${item.healAmount} LP`
+    return ''
   }
 
   return (
@@ -127,38 +160,61 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
           <tbody>
             {items.map((item) => (
               <tr key={item.id} className="border-b last:border-0">
-                <td className="py-2 pr-4">{item.name}</td>
                 <td className="py-2 pr-4">
-                  <div className="flex items-center justify-center gap-1">
-                    <button
-                      onClick={() => void updateQuantity(item.id, item.quantity - 1)}
-                      disabled={item.quantity <= 1}
-                      className="w-6 h-6 flex items-center justify-center border rounded text-sm disabled:opacity-40"
-                      aria-label={`Decrease quantity of ${item.name}`}
-                    >
-                      −
-                    </button>
-                    <input
-                      type="text"
-                      value={editingQuantity[item.id] ?? String(item.quantity)}
-                      onChange={(e) =>
-                        setEditingQuantity((prev) => ({ ...prev, [item.id]: e.target.value }))
-                      }
-                      onBlur={() => applyQuantityEdit(item.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') applyQuantityEdit(item.id)
-                      }}
-                      className="w-10 border rounded px-1 py-0.5 text-sm font-mono text-center"
-                      aria-label={`Quantity of ${item.name}`}
-                    />
-                    <button
-                      onClick={() => void updateQuantity(item.id, item.quantity + 1)}
-                      className="w-6 h-6 flex items-center justify-center border rounded text-sm"
-                      aria-label={`Increase quantity of ${item.name}`}
-                    >
-                      +
-                    </button>
+                  <div className="flex flex-col">
+                    <span>{item.name}</span>
+                    {isConsumable(item) && (
+                      <span className="text-xs text-gray-500">{healDescription(item)} per dose</span>
+                    )}
                   </div>
+                </td>
+                <td className="py-2 pr-4">
+                  {isConsumable(item) ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-sm font-mono font-semibold">
+                        {item.doseCount ?? 0} doses
+                      </span>
+                      <button
+                        onClick={() => void useConsumable(item)}
+                        disabled={!item.doseCount || item.doseCount <= 0}
+                        className="px-2 py-0.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-40"
+                        aria-label={`Use one dose of ${item.name}`}
+                      >
+                        Use
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={() => void updateQuantity(item.id, item.quantity - 1)}
+                        disabled={item.quantity <= 1}
+                        className="w-6 h-6 flex items-center justify-center border rounded text-sm disabled:opacity-40"
+                        aria-label={`Decrease quantity of ${item.name}`}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="text"
+                        value={editingQuantity[item.id] ?? String(item.quantity)}
+                        onChange={(e) =>
+                          setEditingQuantity((prev) => ({ ...prev, [item.id]: e.target.value }))
+                        }
+                        onBlur={() => applyQuantityEdit(item.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') applyQuantityEdit(item.id)
+                        }}
+                        className="w-10 border rounded px-1 py-0.5 text-sm font-mono text-center"
+                        aria-label={`Quantity of ${item.name}`}
+                      />
+                      <button
+                        onClick={() => void updateQuantity(item.id, item.quantity + 1)}
+                        className="w-6 h-6 flex items-center justify-center border rounded text-sm"
+                        aria-label={`Increase quantity of ${item.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  )}
                 </td>
                 {isFightingFantasy && (
                   <td className="py-2 pr-4 text-center text-sm text-gray-500">

@@ -110,23 +110,53 @@ export default async function SessionPage({
     }
   }
 
-  const inventoryForClient = db
+  let rawInventory = db
     .select()
     .from(inventoryItems)
     .where(eq(inventoryItems.sessionId, sessionId))
     .orderBy(asc(inventoryItems.createdAt))
     .all()
-    .map((item) => ({
-      id: item.id,
-      sessionId: item.sessionId,
-      name: item.name,
-      quantity: item.quantity,
-      isSpecial: item.isSpecial,
-      createdAt:
-        item.createdAt instanceof Date
-          ? item.createdAt.toISOString()
-          : new Date((item.createdAt as number) * 1000).toISOString(),
-    }))
+
+  if (rawInventory.length === 0 && gameSystem.consumables && gameSystem.consumables.length > 0) {
+    for (const consumable of gameSystem.consumables) {
+      for (let i = 0; i < consumable.initialCount; i++) {
+        db.insert(inventoryItems)
+          .values({
+            sessionId,
+            name: consumable.name,
+            quantity: 1,
+            isSpecial: false,
+            itemType: consumable.itemType,
+            doseCount: consumable.doseCount,
+            healAmount: consumable.healAmount ?? null,
+            healDice: consumable.healDice ?? null,
+          })
+          .run()
+      }
+    }
+    rawInventory = db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.sessionId, sessionId))
+      .orderBy(asc(inventoryItems.createdAt))
+      .all()
+  }
+
+  const inventoryForClient = rawInventory.map((item) => ({
+    id: item.id,
+    sessionId: item.sessionId,
+    name: item.name,
+    quantity: item.quantity,
+    isSpecial: item.isSpecial,
+    itemType: item.itemType,
+    doseCount: item.doseCount,
+    healAmount: item.healAmount,
+    healDice: item.healDice,
+    createdAt:
+      item.createdAt instanceof Date
+        ? item.createdAt.toISOString()
+        : new Date((item.createdAt as number) * 1000).toISOString(),
+  }))
 
   const spellDefs = gameSystem.spells ?? []
 

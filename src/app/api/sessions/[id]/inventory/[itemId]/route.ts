@@ -10,6 +10,10 @@ function formatItem(item: typeof inventoryItems.$inferSelect) {
     name: item.name,
     quantity: item.quantity,
     isSpecial: item.isSpecial,
+    itemType: item.itemType,
+    doseCount: item.doseCount,
+    healAmount: item.healAmount,
+    healDice: item.healDice,
     createdAt:
       item.createdAt instanceof Date
         ? item.createdAt.toISOString()
@@ -51,9 +55,10 @@ export async function PATCH(
       name?: unknown
       quantity?: unknown
       isSpecial?: unknown
+      doseCount?: unknown
     }
 
-    const { name, quantity, isSpecial } = body
+    const { name, quantity, isSpecial, doseCount } = body
 
     if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
       return NextResponse.json(
@@ -76,17 +81,32 @@ export async function PATCH(
       )
     }
 
-    if (name === undefined && quantity === undefined && isSpecial === undefined) {
+    if (doseCount !== undefined && (typeof doseCount !== 'number' || !Number.isInteger(doseCount) || doseCount < 0)) {
       return NextResponse.json(
-        { error: 'At least one field (name, quantity, isSpecial) must be provided' },
+        { error: 'doseCount must be a non-negative integer' },
         { status: 400 },
       )
     }
 
-    const updateFields: { name?: string; quantity?: number; isSpecial?: boolean } = {}
+    if (name === undefined && quantity === undefined && isSpecial === undefined && doseCount === undefined) {
+      return NextResponse.json(
+        { error: 'At least one field (name, quantity, isSpecial, doseCount) must be provided' },
+        { status: 400 },
+      )
+    }
+
+    if (doseCount === 0) {
+      db.delete(inventoryItems)
+        .where(and(eq(inventoryItems.id, itemIdNum), eq(inventoryItems.sessionId, sessionId)))
+        .run()
+      return new NextResponse(null, { status: 204 })
+    }
+
+    const updateFields: { name?: string; quantity?: number; isSpecial?: boolean; doseCount?: number } = {}
     if (name !== undefined) updateFields.name = (name as string).trim()
     if (quantity !== undefined) updateFields.quantity = quantity as number
     if (isSpecial !== undefined) updateFields.isSpecial = isSpecial as boolean
+    if (doseCount !== undefined) updateFields.doseCount = doseCount as number
 
     db.update(inventoryItems)
       .set(updateFields)
