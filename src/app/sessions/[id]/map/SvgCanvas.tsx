@@ -625,6 +625,7 @@ export default function SvgCanvas({
   return (
     <svg
       ref={svgRef}
+      data-testid="map-canvas"
       className="w-full h-full touch-none select-none"
       style={{ cursor: svgCursor }}
       onPointerDown={handlePointerDown}
