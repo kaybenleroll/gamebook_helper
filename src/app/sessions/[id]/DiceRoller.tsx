@@ -34,17 +34,30 @@ function DiceIcon() {
   )
 }
 
+interface RollResult {
+  rolls: number[]
+  total: number
+  modifier: number
+}
+
+function formatBreakdown(rolls: number[], modifier: number): string | null {
+  if (rolls.length <= 1) return null
+  const parts = rolls.join(' + ')
+  if (modifier > 0) return `${parts} + ${modifier}`
+  if (modifier < 0) return `${parts} - ${Math.abs(modifier)}`
+  return parts
+}
+
 export default function DiceRoller({ defaultDice }: Props) {
-  const [result, setResult] = useState<number | null>(null)
+  const [rollResult, setRollResult] = useState<RollResult | null>(null)
   const [rollCount, setRollCount] = useState(0)
-  const [rolling, setRolling] = useState(false)
+  const [rolling, setRolling] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  async function roll() {
-    setRolling(true)
+  async function roll(formula: string, modifier: number) {
+    setRolling(formula)
     setError(null)
     try {
-      const formula = formatDiceExpr(defaultDice)
       const response = await fetch('/api/dice/roll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,34 +69,51 @@ export default function DiceRoller({ defaultDice }: Props) {
         return
       }
       const data = await response.json() as { rolls: number[]; total: number }
-      setResult(data.total)
+      setRollResult({ rolls: data.rolls, total: data.total, modifier })
       setRollCount(c => c + 1)
     } catch {
       setError('Unable to reach dice server')
     } finally {
-      setRolling(false)
+      setRolling(null)
     }
   }
+
+  const defaultFormula = formatDiceExpr(defaultDice)
+  const breakdown = rollResult !== null
+    ? formatBreakdown(rollResult.rolls, rollResult.modifier)
+    : null
 
   return (
     <section className="mt-6 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
       <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Dice Roller</h2>
       <div className="flex items-center gap-4">
         <button
-          onClick={roll}
-          disabled={rolling}
+          onClick={() => roll(defaultFormula, defaultDice.modifier)}
+          disabled={rolling !== null}
           className="bg-header-accent hover:opacity-90 active:scale-95 transition-transform text-white font-heading text-lg px-6 py-2 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <DiceIcon />
-          {rolling ? 'Rolling…' : `Roll ${formatDiceExpr(defaultDice)}`}
+          {rolling === defaultFormula ? 'Rolling…' : `Roll ${defaultFormula}`}
         </button>
-        {result !== null && !error && (
-          <span
-            key={rollCount}
-            className="font-mono text-accent-blue text-3xl font-bold animate-fade-in"
-          >
-            {result}
-          </span>
+        <button
+          onClick={() => roll('1d6', 0)}
+          disabled={rolling !== null}
+          className="bg-header-accent hover:opacity-90 active:scale-95 transition-transform text-white font-heading text-lg px-6 py-2 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50"
+        >
+          <DiceIcon />
+          {rolling === '1d6' ? 'Rolling…' : 'Roll 1d6'}
+        </button>
+        {rollResult !== null && !error && (
+          <div key={rollCount} className="flex flex-col items-center animate-fade-in">
+            {breakdown !== null && (
+              <span className="font-mono text-accent-blue text-sm opacity-75">
+                {breakdown} =
+              </span>
+            )}
+            <span className="font-mono text-accent-blue text-3xl font-bold">
+              {rollResult.total}
+            </span>
+          </div>
         )}
         {error && (
           <span className="text-red-600 text-sm">{error}</span>
