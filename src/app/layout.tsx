@@ -1,5 +1,24 @@
 import type { Metadata } from 'next'
+import { Caveat, Lora, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
+
+const caveat = Caveat({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-heading',
+})
+
+const lora = Lora({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-body',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
+})
 
 export const metadata: Metadata = {
   title: 'Gamebook Helper',
@@ -12,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en-GB">
+    <html lang="en-GB" className={`${caveat.variable} ${lora.variable} ${jetbrainsMono.variable}`}>
       <body>{children}</body>
     </html>
   )
