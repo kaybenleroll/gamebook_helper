@@ -237,9 +237,6 @@ export default function CombatPanel({
         if (data.xpPrompt) {
           setShowXpModal(true)
         }
-        if (data.combat.outcome !== 'in_progress' && !data.xpPrompt) {
-          onCombatEnd?.()
-        }
       } else {
         const err = (await res.json()) as { error?: string }
         setRoundError(err.error ?? 'Failed to resolve round')
@@ -310,9 +307,6 @@ export default function CombatPanel({
         onStatsChange(data.characterStats, data.characterInitialStats)
         setPendingResult(null)
         if (data.xpPrompt) setShowXpModal(true)
-        if (data.combat.outcome !== 'in_progress' && !data.xpPrompt) {
-          onCombatEnd?.()
-        }
       } else {
         const err = (await res.json()) as { error?: string }
         setRoundError(err.error ?? 'Failed to commit overrides')
@@ -334,7 +328,6 @@ export default function CombatPanel({
     if (res.ok) {
       const data = (await res.json()) as CombatData
       setCombat(data)
-      onCombatEnd?.()
     }
   }
 
