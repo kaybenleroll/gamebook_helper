@@ -14,6 +14,7 @@ export type CreationRolls = Record<string, StatRollDetail>
 export const combatOutcomeEnum = [
   'in_progress',
   'player_won',
+  'enemy_knocked_out',
   'player_lost',
   'player_fled',
 ] as const

@@ -259,9 +259,12 @@ export const grailQuestCombat: CombatModule = {
     const newEnemyState: GqEnemyState = { currentLifePoints: newCurrentLifePoints }
 
     // Determine outcome
+    // Grail Quest rule: combat ends when enemy LP drops to 5 or below.
+    // 1–5 LP remaining → enemy is knocked unconscious (enemy_knocked_out)
+    // 0 LP or below  → enemy is defeated/killed (player_won)
     let outcome: CombatOutcome | null = null
-    if (newCurrentLifePoints <= 0) {
-      outcome = 'player_won'
+    if (newCurrentLifePoints <= 5) {
+      outcome = newCurrentLifePoints <= 0 ? 'player_won' : 'enemy_knocked_out'
     } else if (playerCurrentLp - damageTaken <= 0) {
       outcome = 'player_lost'
     }

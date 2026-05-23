@@ -122,9 +122,11 @@ export async function POST(
 
     let finalOutcome: CombatOutcomeValue | null = result.outcome as CombatOutcomeValue | null
     if (typeof overrides.damageDealt === 'number' || typeof overrides.damageTaken === 'number') {
-      // Re-derive outcome when overrides change the damage figures
-      if (enemyCurrentStamina <= 0) {
-        finalOutcome = 'player_won'
+      // Re-derive outcome when overrides change the damage figures.
+      // Grail Quest: combat ends at <= 5 LP; 0 = defeated, 1–5 = knocked unconscious.
+      const grailQuestKnockoutThreshold = session.gameSystemId === 'grail-quest' ? 5 : 0
+      if (enemyCurrentStamina <= grailQuestKnockoutThreshold) {
+        finalOutcome = enemyCurrentStamina <= 0 ? 'player_won' : 'enemy_knocked_out'
       } else if (playerNewLp <= 0) {
         finalOutcome = 'player_lost'
       } else {
@@ -146,9 +148,9 @@ export async function POST(
       newStats = { ...newStats, [stat]: updated }
     }
 
-    // Handle XP award for GQ win
+    // Handle XP award for GQ win (both outright kill and knockout)
     let xpPrompt = false
-    if (finalOutcome === 'player_won' && session.gameSystemId === 'grail-quest') {
+    if ((finalOutcome === 'player_won' || finalOutcome === 'enemy_knocked_out') && session.gameSystemId === 'grail-quest') {
       const metadata = combat.metadata as Record<string, unknown>
       const enemyXp =
         typeof metadata['enemyXp'] === 'number' ? (metadata['enemyXp'] as number) : 0

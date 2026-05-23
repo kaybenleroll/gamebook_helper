@@ -669,12 +669,15 @@ export default function CombatPanel({
             className={`mb-4 p-3 rounded text-center font-bold text-lg ${
               combat.outcome === 'player_won'
                 ? 'bg-green-100 text-green-800'
-                : combat.outcome === 'player_fled'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : 'bg-red-100 text-red-800'
+                : combat.outcome === 'enemy_knocked_out'
+                  ? 'bg-amber-100 text-amber-800'
+                  : combat.outcome === 'player_fled'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-red-100 text-red-800'
             }`}
           >
             {combat.outcome === 'player_won' && `Victory over ${combat.enemyName}!`}
+            {combat.outcome === 'enemy_knocked_out' && `${combat.enemyName} knocked unconscious!`}
             {combat.outcome === 'player_lost' && `Defeated by ${combat.enemyName}.`}
             {combat.outcome === 'player_fled' && `Fled from ${combat.enemyName}.`}
           </div>
