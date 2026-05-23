@@ -35,7 +35,8 @@ export async function GET(
           : new Date((v.visitedAt as number) * 1000).toISOString(),
       })),
     })
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]/section]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -78,7 +79,8 @@ export async function POST(
       },
       { status: 201 },
     )
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/section]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

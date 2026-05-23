@@ -82,7 +82,8 @@ export async function PATCH(
       .get()!
 
     return NextResponse.json(formatNode(updated))
-  } catch {
+  } catch (err) {
+    console.error('[PATCH /api/maps/[mapId]/nodes/[nodeId]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -123,7 +124,8 @@ export async function DELETE(
       .run()
 
     return new NextResponse(null, { status: 204 })
-  } catch {
+  } catch (err) {
+    console.error('[DELETE /api/maps/[mapId]/nodes/[nodeId]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

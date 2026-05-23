@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import '../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../lib/game-systems/registry'
 import { db } from '../../../../lib/db'
-import { sessions, characters, maps, combats, combatRounds, sectionVisits } from '../../../../lib/db/schema'
+import { sessions, characters, maps, combats, combatRounds, sectionVisits, inventoryItems, sessionSpells } from '../../../../lib/db/schema'
 import { eq, inArray } from 'drizzle-orm'
 
 export async function GET(
@@ -49,7 +49,8 @@ export async function GET(
         stats: gameSystem.stats.map((s) => ({ key: s.key, label: s.label })),
       },
     })
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -114,7 +115,8 @@ export async function PATCH(
       notes: updatedSession.notes ?? null,
       panelOrder: updatedSession.panelOrder ? JSON.parse(updatedSession.panelOrder) as string[] : null,
     })
-  } catch {
+  } catch (err) {
+    console.error('[PATCH /api/sessions/[id]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -146,6 +148,8 @@ export async function DELETE(
 
       tx.delete(sectionVisits).where(eq(sectionVisits.sessionId, sessionId)).run()
       tx.delete(combats).where(eq(combats.sessionId, sessionId)).run()
+      tx.delete(inventoryItems).where(eq(inventoryItems.sessionId, sessionId)).run()
+      tx.delete(sessionSpells).where(eq(sessionSpells.sessionId, sessionId)).run()
       // maps/map_nodes/map_edges are cascade-deleted via FK on session_id
       tx.delete(maps).where(eq(maps.sessionId, sessionId)).run()
       tx.delete(characters).where(eq(characters.sessionId, sessionId)).run()
@@ -153,7 +157,8 @@ export async function DELETE(
     })
 
     return new NextResponse(null, { status: 204 })
-  } catch {
+  } catch (err) {
+    console.error('[DELETE /api/sessions/[id]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

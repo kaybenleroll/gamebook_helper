@@ -48,7 +48,8 @@ export async function GET(
       .all()
 
     return NextResponse.json(edges.map(formatEdge))
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/maps/[mapId]/edges]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -111,7 +112,8 @@ export async function POST(
       .get()
 
     return NextResponse.json(formatEdge(result), { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/maps/[mapId]/edges]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

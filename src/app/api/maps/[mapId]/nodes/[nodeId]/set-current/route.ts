@@ -71,7 +71,8 @@ export async function POST(
       .all()
 
     return NextResponse.json(nodes.map(formatNode))
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/maps/[mapId]/nodes/[nodeId]/set-current]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

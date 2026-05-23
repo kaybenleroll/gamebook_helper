@@ -38,7 +38,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const total = rolls.reduce((sum, r) => sum + r, 0) + modifier
 
     return NextResponse.json({ rolls, total })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/dice/roll]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -171,7 +171,8 @@ export async function PATCH(
       .run()
 
     return NextResponse.json({ stats: newStats, initialStats: newInitialStats })
-  } catch {
+  } catch (err) {
+    console.error('[PATCH /api/sessions/[id]/character]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
