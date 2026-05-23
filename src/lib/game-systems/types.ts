@@ -63,6 +63,16 @@ export interface SpellDefinition {
   damage: number
 }
 
+export interface ConsumableDefinition {
+  name: string
+  itemType: 'potion' | 'salve'
+  initialCount: number
+  doseCount: number
+  healAmount?: number
+  healDice?: string
+  description: string
+}
+
 export interface GameSystem {
   id: string
   name: string
@@ -71,4 +81,5 @@ export interface GameSystem {
   defaultDice: DiceSpec
   combat?: CombatModule
   spells?: SpellDefinition[]
+  consumables?: ConsumableDefinition[]
 }

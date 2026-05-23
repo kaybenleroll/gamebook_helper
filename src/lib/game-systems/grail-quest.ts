@@ -1,4 +1,4 @@
-import type { GameSystem, CombatModule, CombatState, RoundOption, CombatOutcome } from './types'
+import type { GameSystem, CombatModule, CombatState, RoundOption, CombatOutcome, ConsumableDefinition } from './types'
 import { gameSystemRegistry } from './registry'
 import { rollDice } from '../dice'
 
@@ -282,6 +282,25 @@ function buildNarrative(info: {
   return `${playerPart} ${enemyPart}`
 }
 
+const grailQuestConsumables: ConsumableDefinition[] = [
+  {
+    name: 'Healing Potion',
+    itemType: 'potion',
+    initialCount: 3,
+    doseCount: 6,
+    healDice: '1d6',
+    description: 'restores 1d6 LP',
+  },
+  {
+    name: 'Salve',
+    itemType: 'salve',
+    initialCount: 1,
+    doseCount: 5,
+    healAmount: 3,
+    description: 'restores 3 LP',
+  },
+]
+
 export const grailQuest: GameSystem = {
   id: 'grail-quest',
   name: 'Grail Quest',
@@ -306,6 +325,7 @@ export const grailQuest: GameSystem = {
     { id: 'lightning-bolt', name: 'Lightning Bolt', maxUses: 10, hitCondition: 'Auto-hit', damage: 10 },
     { id: 'fireball', name: 'Fireball', maxUses: 2, hitCondition: 'Roll 6+ on 2d6', damage: 75 },
   ],
+  consumables: grailQuestConsumables,
 }
 
 gameSystemRegistry.register(grailQuest)

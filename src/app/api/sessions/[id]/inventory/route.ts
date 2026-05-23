@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import '../../../../../lib/game-systems/index'
+import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
 import { db } from '../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
@@ -10,6 +12,10 @@ function formatItem(item: typeof inventoryItems.$inferSelect) {
     name: item.name,
     quantity: item.quantity,
     isSpecial: item.isSpecial,
+    itemType: item.itemType,
+    doseCount: item.doseCount,
+    healAmount: item.healAmount,
+    healDice: item.healDice,
     createdAt:
       item.createdAt instanceof Date
         ? item.createdAt.toISOString()
@@ -33,12 +39,44 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    const items = db
+    let gameSystem
+    try {
+      gameSystem = gameSystemRegistry.get(session.gameSystemId)
+    } catch {
+      gameSystem = null
+    }
+
+    let items = db
       .select()
       .from(inventoryItems)
       .where(eq(inventoryItems.sessionId, sessionId))
       .orderBy(asc(inventoryItems.createdAt))
       .all()
+
+    if (items.length === 0 && gameSystem?.consumables && gameSystem.consumables.length > 0) {
+      for (const consumable of gameSystem.consumables) {
+        for (let i = 0; i < consumable.initialCount; i++) {
+          db.insert(inventoryItems)
+            .values({
+              sessionId,
+              name: consumable.name,
+              quantity: 1,
+              isSpecial: false,
+              itemType: consumable.itemType,
+              doseCount: consumable.doseCount,
+              healAmount: consumable.healAmount ?? null,
+              healDice: consumable.healDice ?? null,
+            })
+            .run()
+        }
+      }
+      items = db
+        .select()
+        .from(inventoryItems)
+        .where(eq(inventoryItems.sessionId, sessionId))
+        .orderBy(asc(inventoryItems.createdAt))
+        .all()
+    }
 
     return NextResponse.json(items.map(formatItem))
   } catch {

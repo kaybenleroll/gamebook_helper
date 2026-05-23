@@ -132,6 +132,10 @@ interface InventoryItem {
   name: string
   quantity: number
   isSpecial: boolean
+  itemType: string
+  doseCount: number | null
+  healAmount: number | null
+  healDice: string | null
   createdAt: string
 }
 
