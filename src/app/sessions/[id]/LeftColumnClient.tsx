@@ -285,6 +285,18 @@ export default function LeftColumnClient({
 
   return (
     <div>
+      {enemyStatFields && !isGameOver && (
+        <div className="mb-4">
+          <button
+            onClick={() => setCombatOpen(true)}
+            className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
+            type="button"
+          >
+            Start Combat
+          </button>
+        </div>
+      )}
+
       <DndContext
         id="panel-sort"
         sensors={sensors}
@@ -301,18 +313,6 @@ export default function LeftColumnClient({
           </div>
         </SortableContext>
       </DndContext>
-
-      {enemyStatFields && !isGameOver && (
-        <div className="mt-4">
-          <button
-            onClick={() => setCombatOpen(true)}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
-            type="button"
-          >
-            Start Combat
-          </button>
-        </div>
-      )}
 
       {combatOpen && enemyStatFields && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
