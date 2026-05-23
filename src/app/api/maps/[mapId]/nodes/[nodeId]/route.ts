@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '../../../../../../lib/db'
 import { maps, mapNodes } from '../../../../../../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import logger from '../../../../../../lib/logger'
 
 function formatNode(node: typeof mapNodes.$inferSelect) {
   return {
@@ -83,7 +84,7 @@ export async function PATCH(
 
     return NextResponse.json(formatNode(updated))
   } catch (err) {
-    console.error('[PATCH /api/maps/[mapId]/nodes/[nodeId]]:', err)
+    logger.error({ err }, '[PATCH /api/maps/[mapId]/nodes/[nodeId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -125,7 +126,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 })
   } catch (err) {
-    console.error('[DELETE /api/maps/[mapId]/nodes/[nodeId]]:', err)
+    logger.error({ err }, '[DELETE /api/maps/[mapId]/nodes/[nodeId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

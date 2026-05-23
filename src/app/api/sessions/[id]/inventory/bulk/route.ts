@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '../../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
+import logger from '../../../../../../lib/logger'
 
 interface BulkItem {
   count: number
@@ -103,7 +104,7 @@ export async function POST(
 
     return NextResponse.json(created.map(formatItem), { status: 201 })
   } catch (err) {
-    console.error('[POST /api/sessions/[id]/inventory/bulk]:', err)
+    logger.error({ err }, '[POST /api/sessions/[id]/inventory/bulk] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

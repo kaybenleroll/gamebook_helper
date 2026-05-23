@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rollDice } from '../../../../lib/dice'
+import logger from '../../../../lib/logger'
 
 // Parses a dice formula in NdN or NdN+M / NdN-M format.
 // Returns null if the formula is invalid.
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ rolls, total })
   } catch (err) {
-    console.error('[POST /api/dice/roll]:', err)
+    logger.error({ err }, '[POST /api/dice/roll] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

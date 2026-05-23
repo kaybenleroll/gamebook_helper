@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '../../../../../lib/db'
 import { maps, mapNodes, mapEdges, directionEnum, connectionTypeEnum } from '../../../../../lib/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
+import logger from '../../../../../lib/logger'
 
 function formatEdge(edge: typeof mapEdges.$inferSelect) {
   return {
@@ -49,7 +50,7 @@ export async function GET(
 
     return NextResponse.json(edges.map(formatEdge))
   } catch (err) {
-    console.error('[GET /api/maps/[mapId]/edges]:', err)
+    logger.error({ err }, '[GET /api/maps/[mapId]/edges] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -113,7 +114,7 @@ export async function POST(
 
     return NextResponse.json(formatEdge(result), { status: 201 })
   } catch (err) {
-    console.error('[POST /api/maps/[mapId]/edges]:', err)
+    logger.error({ err }, '[POST /api/maps/[mapId]/edges] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

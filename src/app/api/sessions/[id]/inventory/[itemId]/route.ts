@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '../../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import logger from '../../../../../../lib/logger'
 
 function formatItem(item: typeof inventoryItems.$inferSelect) {
   return {
@@ -121,7 +122,7 @@ export async function PATCH(
 
     return NextResponse.json(formatItem(updated))
   } catch (err) {
-    console.error('[PATCH /api/sessions/[id]/inventory/[itemId]]:', err)
+    logger.error({ err }, '[PATCH /api/sessions/[id]/inventory/[itemId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -162,7 +163,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 })
   } catch (err) {
-    console.error('[DELETE /api/sessions/[id]/inventory/[itemId]]:', err)
+    logger.error({ err }, '[DELETE /api/sessions/[id]/inventory/[itemId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

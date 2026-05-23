@@ -6,6 +6,7 @@ import { db } from '../../../../../../../lib/db'
 import { sessions, characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
 import { eq, count, and } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../../lib/db/schema'
+import logger from '../../../../../../../lib/logger'
 
 function formatTs(v: Date | number | null): string | null {
   if (!v) return null
@@ -247,7 +248,7 @@ export async function POST(
       { status: 201 },
     )
   } catch (err) {
-    console.error('[POST /api/sessions/[id]/combats/[combatId]/rounds]:', err)
+    logger.error({ err }, '[POST /api/sessions/[id]/combats/[combatId]/rounds] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

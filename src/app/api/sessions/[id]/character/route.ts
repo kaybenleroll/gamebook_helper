@@ -5,6 +5,7 @@ import { applyXpThreshold, xpToLpBonuses } from '../../../../../lib/game-systems
 import { db } from '../../../../../lib/db'
 import { sessions, characters } from '../../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
+import logger from '../../../../../lib/logger'
 
 interface EquipmentItem {
   name: string
@@ -170,9 +171,10 @@ export async function PATCH(
       .where(eq(characters.sessionId, sessionId))
       .run()
 
+    logger.debug({ sessionId }, 'stat updated')
     return NextResponse.json({ stats: newStats, initialStats: newInitialStats })
   } catch (err) {
-    console.error('[PATCH /api/sessions/[id]/character]:', err)
+    logger.error({ err }, '[PATCH /api/sessions/[id]/character] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

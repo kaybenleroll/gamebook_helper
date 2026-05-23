@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
+import logger from './logger'
 
 const sqlite = new Database(process.env.DATABASE_URL ?? '/app/data/gamebook.db')
 
@@ -114,4 +115,10 @@ function assertSchemaUpToDate(db: Database.Database): void {
 
 assertSchemaUpToDate(sqlite)
 
-export const db = drizzle(sqlite)
+export const db = drizzle(sqlite, {
+  logger: {
+    logQuery(query: string, params: unknown[]) {
+      logger.debug({ query, params }, 'db query')
+    },
+  },
+})

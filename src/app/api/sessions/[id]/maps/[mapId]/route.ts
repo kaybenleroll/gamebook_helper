@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '../../../../../../lib/db'
 import { sessions, maps } from '../../../../../../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
+import logger from '../../../../../../lib/logger'
 
 function formatMap(map: typeof maps.$inferSelect) {
   return {
@@ -68,7 +69,7 @@ export async function PATCH(
 
     return NextResponse.json(formatMap(updated))
   } catch (err) {
-    console.error('[PATCH /api/sessions/[id]/maps/[mapId]]:', err)
+    logger.error({ err }, '[PATCH /api/sessions/[id]/maps/[mapId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -110,7 +111,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 })
   } catch (err) {
-    console.error('[DELETE /api/sessions/[id]/maps/[mapId]]:', err)
+    logger.error({ err }, '[DELETE /api/sessions/[id]/maps/[mapId]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

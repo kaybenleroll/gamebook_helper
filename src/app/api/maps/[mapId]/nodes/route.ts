@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db } from '../../../../../lib/db'
 import { maps, mapNodes } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
+import logger from '../../../../../lib/logger'
 
 function formatNode(node: typeof mapNodes.$inferSelect) {
   return {
@@ -55,7 +56,7 @@ export async function GET(
 
     return NextResponse.json(nodes.map(formatNode))
   } catch (err) {
-    console.error('[GET /api/maps/[mapId]/nodes]:', err)
+    logger.error({ err }, '[GET /api/maps/[mapId]/nodes] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -102,7 +103,7 @@ export async function POST(
 
     return NextResponse.json(formatNode(result), { status: 201 })
   } catch (err) {
-    console.error('[POST /api/maps/[mapId]/nodes]:', err)
+    logger.error({ err }, '[POST /api/maps/[mapId]/nodes] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

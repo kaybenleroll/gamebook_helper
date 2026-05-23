@@ -4,6 +4,7 @@ import { gameSystemRegistry } from '../../../../lib/game-systems/registry'
 import { db } from '../../../../lib/db'
 import { sessions, characters, maps, combats, combatRounds, sectionVisits, inventoryItems, sessionSpells } from '../../../../lib/db/schema'
 import { eq, inArray } from 'drizzle-orm'
+import logger from '../../../../lib/logger'
 
 export async function GET(
   _request: NextRequest,
@@ -50,7 +51,7 @@ export async function GET(
       },
     })
   } catch (err) {
-    console.error('[GET /api/sessions/[id]]:', err)
+    logger.error({ err }, '[GET /api/sessions/[id]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -116,7 +117,7 @@ export async function PATCH(
       panelOrder: updatedSession.panelOrder ? JSON.parse(updatedSession.panelOrder) as string[] : null,
     })
   } catch (err) {
-    console.error('[PATCH /api/sessions/[id]]:', err)
+    logger.error({ err }, '[PATCH /api/sessions/[id]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -158,7 +159,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 })
   } catch (err) {
-    console.error('[DELETE /api/sessions/[id]]:', err)
+    logger.error({ err }, '[DELETE /api/sessions/[id]] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

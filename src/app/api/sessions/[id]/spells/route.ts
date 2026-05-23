@@ -4,6 +4,7 @@ import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
 import { db } from '../../../../../lib/db'
 import { sessions, sessionSpells } from '../../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
+import logger from '../../../../../lib/logger'
 
 export async function GET(
   _request: NextRequest,
@@ -43,7 +44,7 @@ export async function GET(
 
     return NextResponse.json(rows.map((r) => ({ spellId: r.spellId, usesRemaining: r.usesRemaining })))
   } catch (err) {
-    console.error('[GET /api/sessions/[id]/spells]:', err)
+    logger.error({ err }, '[GET /api/sessions/[id]/spells] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
