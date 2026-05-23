@@ -205,14 +205,8 @@ export default async function SessionPage({
         </div>
       )}
 
-      <SectionBreadcrumb
-        sessionId={sessionId}
-        initialCurrentSection={currentSection}
-        initialHistory={sectionHistoryForClient}
-      />
-
       <ResizableColumns
-        defaultLeftWidth={560}
+        defaultLeftWidth={680}
         left={
           <LeftColumnClient
             sessionId={sessionId}
@@ -235,9 +229,16 @@ export default async function SessionPage({
           />
         }
         right={
-          <Suspense fallback={<div className="p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
-            <MapGrid sessionId={sessionId} />
-          </Suspense>
+          <div className="flex flex-col h-full">
+            <SectionBreadcrumb
+              sessionId={sessionId}
+              initialCurrentSection={currentSection}
+              initialHistory={sectionHistoryForClient}
+            />
+            <Suspense fallback={<div className="p-4 border border-gray-200 rounded text-gray-400">Loading maps…</div>}>
+              <MapGrid sessionId={sessionId} />
+            </Suspense>
+          </div>
         }
       />
     </main>
