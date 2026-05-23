@@ -441,7 +441,7 @@ export default function CombatPanel({
                           ? String(field.default)
                           : ''
                     }
-                    min={field.type === 'number' && field.key === 'enemyDamageBonus' ? 0 : undefined}
+                    min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus') ? 0 : undefined}
                     onChange={(e) =>
                       setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
                     }

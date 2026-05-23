@@ -93,15 +93,24 @@ export async function POST(
       ? result.damageTaken + enemyDamageBonus
       : result.damageTaken
 
+    // Apply playerDamageBonus from combat metadata when player dealt damage
+    const playerDamageBonus =
+      typeof combatMetadata['playerDamageBonus'] === 'number'
+        ? (combatMetadata['playerDamageBonus'] as number)
+        : 0
+    const baseDamageDealt = result.damageDealt > 0
+      ? result.damageDealt + playerDamageBonus
+      : result.damageDealt
+
     // Apply overrides if present
     const finalDamageDealt =
-      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : result.damageDealt
+      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : baseDamageDealt
     const finalDamageTaken =
       typeof overrides.damageTaken === 'number' ? overrides.damageTaken : baseDamageTaken
 
-    // Recalculate enemy state with override damage
+    // Recalculate enemy state with override damage or playerDamageBonus
     let finalEnemyState = result.enemyState as Record<string, unknown>
-    if (typeof overrides.damageDealt === 'number') {
+    if (typeof overrides.damageDealt === 'number' || baseDamageDealt !== result.damageDealt) {
       const originalEnemyState = combat.enemyState as Record<string, unknown>
       const currentLifePoints =
         typeof originalEnemyState['currentLifePoints'] === 'number'
@@ -109,7 +118,7 @@ export async function POST(
           : 0
       finalEnemyState = {
         ...finalEnemyState,
-        currentLifePoints: Math.max(0, currentLifePoints - overrides.damageDealt),
+        currentLifePoints: Math.max(0, currentLifePoints - finalDamageDealt),
       }
     }
 
