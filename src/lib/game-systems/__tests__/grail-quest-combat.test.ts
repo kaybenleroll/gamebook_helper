@@ -340,12 +340,26 @@ describe('resolveRound — win/lose conditions', () => {
     }
   })
 
-  it('returns null when enemy LP > 0 after hit (combat continues)', () => {
-    // Enemy starts at 7 LP; player roll 12 → damage 6 → 7 − 6 = 1 LP remaining
+  it('returns enemy_knocked_out when enemy LP drops to 1–5 (Grail Quest rule)', () => {
+    // Enemy starts at 7 LP; player roll 12 > 6 → damage = 6 → 7 − 6 = 1 LP remaining (≤ 5 → knockout)
     vi.spyOn(Math, 'random').mockReturnValue(0.99) // force max roll (12)
     try {
       const result = resolveWith({
         enemyState: makeEnemyState(7),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+      })
+      expect(result.outcome).toBe('enemy_knocked_out')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('returns null when enemy LP remains > 5 after hit (combat continues)', () => {
+    // Enemy starts at 20 LP; player roll 12 → damage 6 → 20 − 6 = 14 LP remaining (> 5)
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // force max roll (12)
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(20),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
       })
       expect(result.outcome).toBeNull()

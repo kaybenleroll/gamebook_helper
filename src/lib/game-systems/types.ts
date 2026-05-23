@@ -15,7 +15,7 @@ export interface StatDefinition {
   initialDice?: DiceSpec
 }
 
-export type CombatOutcome = 'in_progress' | 'player_won' | 'player_lost' | 'player_fled'
+export type CombatOutcome = 'in_progress' | 'player_won' | 'enemy_knocked_out' | 'player_lost' | 'player_fled'
 
 export type RoundOption = {
   key: string
