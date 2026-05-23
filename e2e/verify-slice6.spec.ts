@@ -21,7 +21,7 @@ let seedEdgeId: number
 test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
   // Create a dedicated session for this test suite.
   const sessRes = await request.post(`${BASE}/api/sessions`, {
-    data: { gameSystemId: 'grail-quest', bookTitle: 'Slice6 E2E Test' },
+    data: { gameSystemId: 'grail-quest', bookTitle: '[test] Slice6' },
   })
   expect(sessRes.status()).toBe(201)
   const { sessionId: sid } = await sessRes.json()

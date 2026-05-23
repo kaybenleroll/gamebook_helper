@@ -14,7 +14,7 @@ test.describe('Issue #50 — typed stat editing', () => {
   test.beforeAll(async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.post('/api/sessions', {
-      data: { bookTitle: 'Verify #50', gameSystemId: 'grail-quest' },
+      data: { bookTitle: '[test] Verify #50', gameSystemId: 'grail-quest' },
     })
     sessionId = (await res.json()).sessionId
     await ctx.dispose()

@@ -6,7 +6,7 @@ test.describe('game-over modal', () => {
   test.beforeAll(async ({ baseURL }) => {
     const ctx = await request.newContext({ baseURL })
     const res = await ctx.post('/api/sessions', {
-      data: { bookTitle: 'GameOver Modal Test', gameSystemId: 'grail-quest' },
+      data: { bookTitle: '[test] GameOver Modal', gameSystemId: 'grail-quest' },
     })
     sessionId = (await res.json() as { sessionId: number }).sessionId
     await ctx.dispose()
