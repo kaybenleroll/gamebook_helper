@@ -4,7 +4,7 @@ import { gameSystemRegistry } from '../../../../../../../lib/game-systems/regist
 import { applyXpThreshold } from '../../../../../../../lib/game-systems/grail-quest'
 import { db } from '../../../../../../../lib/db'
 import { sessions, characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
-import { eq, count, and } from 'drizzle-orm'
+import { eq, count, and, desc } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../../lib/db/schema'
 import logger from '../../../../../../../lib/logger'
 
@@ -69,69 +69,91 @@ export async function POST(
 
     const chosenOptions = body.chosenOptions ?? {}
     const combatModifiers = body.combatModifiers ?? {}
-    const overrides = body.overrides ?? {}
+    const overrides = body.overrides
 
     const characterStats = character.stats as Record<string, unknown>
 
-    // Resolve round via game system — all combat maths live in the game-system module
-    const result = gameSystem.combat.resolveRound({
-      enemyStats: combat.enemyStats,
-      enemyState: combat.enemyState,
-      metadata: combat.metadata,
-      characterStats,
-      chosenOptions,
-      combatModifiers,
-    })
+    const isCommitOverride =
+      overrides !== undefined &&
+      (typeof overrides.damageDealt === 'number' || typeof overrides.damageTaken === 'number')
 
-    // Apply overrides if present
-    const finalDamageDealt =
-      typeof overrides.damageDealt === 'number' ? overrides.damageDealt : result.damageDealt
-    const finalDamageTaken =
-      typeof overrides.damageTaken === 'number' ? overrides.damageTaken : result.damageTaken
-
-    // Recalculate enemy state if damage dealt was overridden
-    let finalEnemyState = result.enemyState as Record<string, unknown>
-    if (typeof overrides.damageDealt === 'number') {
-      const originalEnemyState = combat.enemyState as Record<string, unknown>
-      const currentLifePoints =
-        typeof originalEnemyState['currentLifePoints'] === 'number'
-          ? (originalEnemyState['currentLifePoints'] as number)
-          : 0
-      finalEnemyState = {
-        ...finalEnemyState,
-        currentLifePoints: Math.max(0, currentLifePoints - finalDamageDealt),
+    // 422 guard: damageTaken override is invalid on a phaseTwoSkipped round
+    if (isCommitOverride && typeof overrides!.damageTaken === 'number') {
+      const lastRound = db
+        .select()
+        .from(combatRounds)
+        .where(eq(combatRounds.combatId, combatIdInt))
+        .orderBy(desc(combatRounds.roundNumber))
+        .limit(1)
+        .get()
+      if (lastRound) {
+        const lastDetail = lastRound.detail as Record<string, unknown>
+        if (lastDetail['phaseTwoSkipped'] === true) {
+          return NextResponse.json(
+            { error: 'damageTaken override is not valid on a round where Phase 2 was skipped' },
+            { status: 422 },
+          )
+        }
       }
     }
 
-    // Recalculate character deltas if damage taken was overridden
-    const finalCharacterDeltas: Record<string, number> = { ...result.characterDeltas }
-    if (typeof overrides.damageTaken === 'number') {
-      finalCharacterDeltas['lifePoints'] = -overrides.damageTaken
-    }
+    let finalDamageDealt: number
+    let finalDamageTaken: number
+    let finalEnemyState: Record<string, unknown>
+    let finalCharacterDeltas: Record<string, number>
+    let finalOutcome: CombatOutcomeValue | null
+    let roundDetail: Record<string, unknown>
 
-    // Recalculate outcome with final values
-    const enemyCurrentStamina =
-      typeof finalEnemyState['currentLifePoints'] === 'number'
-        ? (finalEnemyState['currentLifePoints'] as number)
-        : 0
-    const playerCurrentLp =
-      typeof characterStats['lifePoints'] === 'number'
-        ? (characterStats['lifePoints'] as number)
-        : 0
-    const playerNewLp = playerCurrentLp + (finalCharacterDeltas['lifePoints'] ?? 0)
+    if (isCommitOverride) {
+      // Commit path: apply override damage values directly to existing combat state.
+      // Do NOT re-call resolveRound — this avoids re-rolling dice.
+      const safeOverrides = overrides!
+      const originalEnemyState = combat.enemyState as Record<string, unknown>
+      const originalEnemyLp =
+        typeof originalEnemyState['currentLifePoints'] === 'number'
+          ? (originalEnemyState['currentLifePoints'] as number)
+          : 0
 
-    let finalOutcome: CombatOutcomeValue | null = result.outcome as CombatOutcomeValue | null
-    if (typeof overrides.damageDealt === 'number' || typeof overrides.damageTaken === 'number') {
-      // Re-derive outcome when overrides change the damage figures.
-      // Grail Quest: combat ends at <= 5 LP; 0 = defeated, 1–5 = knocked unconscious.
+      finalDamageDealt = typeof safeOverrides.damageDealt === 'number' ? safeOverrides.damageDealt : 0
+      finalDamageTaken = typeof safeOverrides.damageTaken === 'number' ? safeOverrides.damageTaken : 0
+
+      const newEnemyLp = Math.max(0, originalEnemyLp - finalDamageDealt)
+      finalEnemyState = { ...originalEnemyState, currentLifePoints: newEnemyLp }
+      finalCharacterDeltas = { lifePoints: -finalDamageTaken }
+
+      // Re-derive outcome from updated HPs
+      const playerCurrentLp =
+        typeof characterStats['lifePoints'] === 'number'
+          ? (characterStats['lifePoints'] as number)
+          : 0
+      const playerNewLp = playerCurrentLp - finalDamageTaken
       const grailQuestKnockoutThreshold = session.gameSystemId === 'grail-quest' ? 5 : 0
-      if (enemyCurrentStamina <= grailQuestKnockoutThreshold) {
-        finalOutcome = enemyCurrentStamina <= 0 ? 'player_won' : 'enemy_knocked_out'
+      if (newEnemyLp <= grailQuestKnockoutThreshold) {
+        finalOutcome = newEnemyLp <= 0 ? 'player_won' : 'enemy_knocked_out'
       } else if (playerNewLp <= 0) {
         finalOutcome = 'player_lost'
       } else {
         finalOutcome = null
       }
+
+      roundDetail = { overrides: safeOverrides }
+    } else {
+      // Normal path: resolve round via game system — all combat maths live in the game-system module
+      const result = gameSystem.combat.resolveRound({
+        enemyStats: combat.enemyStats,
+        enemyState: combat.enemyState,
+        metadata: combat.metadata,
+        characterStats,
+        chosenOptions,
+        combatModifiers: combatModifiers ?? {},
+      })
+
+      finalDamageDealt = result.damageDealt
+      finalDamageTaken = result.damageTaken
+      finalEnemyState = result.enemyState as Record<string, unknown>
+      finalCharacterDeltas = { ...result.characterDeltas }
+      finalOutcome = result.outcome as CombatOutcomeValue | null
+      roundDetail = result.detail as Record<string, unknown>
     }
 
     // Pre-compute updated character stats (needed inside transaction and for response)
@@ -176,15 +198,13 @@ export async function POST(
       .get()
     const nextRoundNumber = (roundCountResult?.count ?? 0) + 1
 
-    const detail = result.detail as Record<string, unknown>
-
     // Write everything in a transaction
     db.transaction(() => {
       db.insert(combatRounds)
         .values({
           combatId: combatIdInt,
           roundNumber: nextRoundNumber,
-          detail: { ...detail, overrides },
+          detail: roundDetail,
           damageDealt: finalDamageDealt,
           damageTaken: finalDamageTaken,
         })

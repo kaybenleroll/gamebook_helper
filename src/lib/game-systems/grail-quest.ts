@@ -231,43 +231,87 @@ export const grailQuestCombat: CombatModule = {
 
     const riskyAttack = args.chosenOptions['riskyAttack'] === true
 
-    // Player attack — roll 2d6; hit if strictly greater than threshold
-    // damage = (roll − threshold) + playerDamageBonus − enemyArmourReduction, min 0
+    // Initiative winner determines Phase 1 attacker.
+    const initiativeWinner: 'player' | 'enemy' =
+      metadataRecord?.initiativeWinner === 'enemy' ? 'enemy' : 'player'
+
+    // --- Phase 1: initiative winner attacks ---
     const playerDice = rollDice(2, 6)
     const playerRoll = playerDice.reduce((s, r) => s + r, 0)
     const basePlayerThreshold = playerThresholdOverride ?? metadataPlayerThreshold
     const playerThreshold = riskyAttack ? basePlayerThreshold + 2 : basePlayerThreshold
-    const playerHit = playerRoll > playerThreshold
-    let damageDealt = 0
-    if (playerHit) {
-      const baseDamage = Math.max(0, (playerRoll - playerThreshold) + playerDamageBonus - enemyArmourReduction)
-      damageDealt = riskyAttack ? baseDamage * 2 : baseDamage
-    }
 
-    // Enemy attack — roll 2d6; hit if strictly greater than threshold
-    // damage = (roll − threshold) + enemyDamageBonus − playerArmourReduction, min 0
     const enemyDice = rollDice(2, 6)
     const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
     const enemyThreshold = enemyThresholdFromStats
+
+    // Compute raw damage for each side (used in phase logic)
+    const playerHit = playerRoll > playerThreshold
+    let rawDamageDealt = 0
+    if (playerHit) {
+      const baseDamage = Math.max(0, (playerRoll - playerThreshold) + playerDamageBonus - enemyArmourReduction)
+      rawDamageDealt = riskyAttack ? baseDamage * 2 : baseDamage
+    }
+
     const enemyHit = enemyRoll > enemyThreshold
-    const damageTaken = enemyHit
+    const rawDamageTaken = enemyHit
       ? Math.max(0, (enemyRoll - enemyThreshold) + enemyDamageBonus - playerArmourReduction)
       : 0
 
-    // Update enemy state
-    const newCurrentLifePoints = Math.max(0, currentLifePoints - damageDealt)
-    const newEnemyState: GqEnemyState = { currentLifePoints: newCurrentLifePoints }
-
-    // Determine outcome
-    // Grail Quest rule: combat ends when enemy LP drops to 5 or below.
-    // 1–5 LP remaining → enemy is knocked unconscious (enemy_knocked_out)
-    // 0 LP or below  → enemy is defeated/killed (player_won)
-    let outcome: CombatOutcome | null = null
-    if (newCurrentLifePoints <= 5) {
-      outcome = newCurrentLifePoints <= 0 ? 'player_won' : 'enemy_knocked_out'
-    } else if (playerCurrentLp - damageTaken <= 0) {
-      outcome = 'player_lost'
+    // Phase 1 attacker strikes. Evaluate outcome after Phase 1.
+    let phase1EnemyLp = currentLifePoints
+    let phase1PlayerLp = playerCurrentLp
+    if (initiativeWinner === 'player') {
+      phase1EnemyLp = Math.max(0, currentLifePoints - rawDamageDealt)
+    } else {
+      phase1PlayerLp = playerCurrentLp - rawDamageTaken
     }
+
+    // Evaluate combat outcome after Phase 1
+    // Grail Quest: combat ends when enemy LP ≤ 5 (0 = killed, 1–5 = knocked out)
+    let phase1Outcome: CombatOutcome | null = null
+    if (phase1EnemyLp <= 5) {
+      phase1Outcome = phase1EnemyLp <= 0 ? 'player_won' : 'enemy_knocked_out'
+    } else if (phase1PlayerLp <= 0) {
+      phase1Outcome = 'player_lost'
+    }
+
+    let damageDealt: number
+    let damageTaken: number
+    let newCurrentLifePoints: number
+    let outcome: CombatOutcome | null
+    let phaseTwoSkipped: boolean
+
+    if (phase1Outcome !== null) {
+      // Combat ends after Phase 1 — Phase 2 is skipped
+      phaseTwoSkipped = true
+      outcome = phase1Outcome
+      if (initiativeWinner === 'player') {
+        damageDealt = rawDamageDealt
+        damageTaken = 0
+        newCurrentLifePoints = phase1EnemyLp
+      } else {
+        damageDealt = 0
+        damageTaken = rawDamageTaken
+        newCurrentLifePoints = currentLifePoints
+      }
+    } else {
+      // --- Phase 2: initiative loser attacks ---
+      phaseTwoSkipped = false
+      damageDealt = rawDamageDealt
+      damageTaken = rawDamageTaken
+      newCurrentLifePoints = Math.max(0, currentLifePoints - damageDealt)
+
+      // Re-evaluate outcome with both phases applied
+      outcome = null
+      if (newCurrentLifePoints <= 5) {
+        outcome = newCurrentLifePoints <= 0 ? 'player_won' : 'enemy_knocked_out'
+      } else if (playerCurrentLp - damageTaken <= 0) {
+        outcome = 'player_lost'
+      }
+    }
+
+    const newEnemyState: GqEnemyState = { currentLifePoints: newCurrentLifePoints }
 
     // Build detail narrative
     const detail = {
@@ -281,6 +325,7 @@ export const grailQuestCombat: CombatModule = {
       enemyThreshold,
       enemyHit,
       damageTaken,
+      phaseTwoSkipped,
       narrative: buildNarrative({
         playerDice,
         playerRoll,
@@ -293,6 +338,8 @@ export const grailQuestCombat: CombatModule = {
         enemyThreshold,
         enemyHit,
         damageTaken,
+        phaseTwoSkipped,
+        initiativeWinner,
       }),
     }
 
@@ -319,7 +366,19 @@ function buildNarrative(info: {
   enemyThreshold: number
   enemyHit: boolean
   damageTaken: number
+  phaseTwoSkipped: boolean
+  initiativeWinner: 'player' | 'enemy'
 }): string {
+  // First-strike kill: Phase 2 was skipped because Phase 1 ended combat
+  if (info.phaseTwoSkipped) {
+    if (info.initiativeWinner === 'player') {
+      return `You strike first, dealing ${info.damageDealt} damage. The enemy falls before striking back.`
+    } else {
+      return `The enemy strikes first, dealing ${info.damageTaken} damage. You fall before striking back.`
+    }
+  }
+
+  // Normal round — both phases ran
   const diceStr = (dice: number[]) => `[${dice.join('+')}]=${dice.reduce((s, r) => s + r, 0)}`
   const playerPart = info.playerHit
     ? `Your attack ${diceStr(info.playerDice)} (>${info.playerThreshold}, hit${info.riskyAttack ? ', risky' : ''}), dealt ${info.damageDealt} damage.`

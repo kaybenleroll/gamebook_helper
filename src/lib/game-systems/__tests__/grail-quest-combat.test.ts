@@ -555,6 +555,130 @@ describe('roundOptions', () => {
   })
 })
 
+describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
+  it('player initiative: kills enemy in Phase 1 → phaseTwoSkipped true, damageTaken 0, outcome player_won', () => {
+    // Player initiative. Enemy at 6 LP. Player rolls [6+6]=12 > 6 → damage = 12−6 = 6 → enemy at 0 → player_won.
+    // Phase 2 never runs → damageTaken must be 0.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6
+      .mockReturnValueOnce(0.99) // player die 2: 6 → sum 12, damage 6 → enemy 0
+      .mockReturnValueOnce(0.99) // enemy die 1: 6 (Phase 2 never runs)
+      .mockReturnValueOnce(0.99) // enemy die 2: 6
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(6),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(true)
+      expect(result.damageTaken).toBe(0)
+      expect(result.outcome).toBe('player_won')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('enemy initiative: kills player in Phase 1 → phaseTwoSkipped true, damageDealt 0, outcome player_lost', () => {
+    // Enemy initiative. Player at 1 LP. Enemy rolls [6+6]=12 > 6 → damage = 6 → player at −5 → player_lost.
+    // Phase 2 never runs → damageDealt must be 0.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6 (Phase 2 never runs — dice are pre-rolled but ignored)
+      .mockReturnValueOnce(0.99) // player die 2: 6
+      .mockReturnValueOnce(0.99) // enemy die 1: 6
+      .mockReturnValueOnce(0.99) // enemy die 2: 6 → sum 12, damage 6 → player at -5
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(100),
+        characterStats: makeCharacterStats({ lifePoints: 1 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(true)
+      expect(result.damageDealt).toBe(0)
+      expect(result.outcome).toBe('player_lost')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('player initiative: both survive Phase 1 → phaseTwoSkipped false, both damage values > 0', () => {
+    // Player initiative. Enemy at 20 LP. Player rolls 12 → damage 6 → enemy at 14 (> 5, no end).
+    // Enemy rolls 12 → damage 6 → player at 14. Both phases run.
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // all dice max
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(20),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(false)
+      expect(result.damageDealt).toBeGreaterThan(0)
+      expect(result.damageTaken).toBeGreaterThan(0)
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('normal round where neither side hits → phaseTwoSkipped false, both damages 0, outcome null', () => {
+    // All dice roll 1 → sum 2, not > 6 → all misses. Both phases run but neither does damage.
+    vi.spyOn(Math, 'random').mockReturnValue(0) // all dice min (1)
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(20),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(false)
+      expect(result.damageDealt).toBe(0)
+      expect(result.damageTaken).toBe(0)
+      expect(result.outcome).toBeNull()
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('first-strike kill narrative: player initiative → "strikes first… falls before striking back"', () => {
+    // Player initiative kills enemy → narrative should match first-strike pattern
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // player rolls max → kills enemy
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(6),
+        characterStats: makeCharacterStats({ lifePoints: 20 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(true)
+      const narrative = detail['narrative'] as string
+      expect(narrative).toContain('You strike first')
+      expect(narrative).toContain('falls before striking back')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('first-strike kill narrative: enemy initiative → "enemy strikes first… You fall before striking back"', () => {
+    // Enemy initiative kills player → narrative should match first-strike pattern (enemy)
+    vi.spyOn(Math, 'random').mockReturnValue(0.99) // enemy rolls max → kills player
+    try {
+      const result = resolveWith({
+        enemyState: makeEnemyState(100),
+        characterStats: makeCharacterStats({ lifePoints: 1 }),
+        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+      })
+      const detail = result.detail as Record<string, unknown>
+      expect(detail['phaseTwoSkipped']).toBe(true)
+      const narrative = detail['narrative'] as string
+      expect(narrative).toContain('The enemy strikes first')
+      expect(narrative).toContain('You fall before striking back')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+})
+
 describe('initiative tie re-roll', () => {
   it('resolves without infinite loop even when first rolls tie', () => {
     // Attempt 1: player 2d6 = [4,4]=8, enemy 2d6 = [4,4]=8 → tie
