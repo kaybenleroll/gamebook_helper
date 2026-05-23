@@ -245,7 +245,7 @@ export default function CharacterSheet({
                           if (e.key === 'Enter') parseAndApply(stat.key, statInputs[stat.key] ?? '', 'current')
                         }}
                         placeholder="+5 / 32"
-                        className="w-16 border rounded px-1 py-0.5 text-sm font-mono"
+                        className="w-24 border rounded px-1 py-0.5 text-sm font-mono"
                         aria-label={`Set ${stat.label}`}
                       />
                       <button
@@ -294,7 +294,7 @@ export default function CharacterSheet({
                               parseAndApply(stat.key, initialStatInputs[stat.key] ?? '', 'initial')
                           }}
                           placeholder="+5 / 32"
-                          className="w-14 border rounded px-1 py-0.5 text-xs font-mono"
+                          className="w-20 border rounded px-1 py-0.5 text-xs font-mono"
                           aria-label={`Set starting ${stat.label}`}
                         />
                         <button
