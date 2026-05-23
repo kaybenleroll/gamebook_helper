@@ -274,10 +274,10 @@ test.describe('Scenario 5: Edit node detail panel → persists via API', () => {
     const svg = page.locator('[data-testid="map-canvas"]')
     await svg.scrollIntoViewIfNeeded()
 
-    const circles = svg.locator('circle')
+    const circles = svg.locator('circle[data-node-id]')
     await expect(circles.first()).toBeVisible({ timeout: 8000 })
     await dismissCreationModal(page)
-    await circles.first().click()
+    await svg.locator(`circle[data-node-id="${nodeId}"]`).click()
     await page.waitForTimeout(400)
 
     const panel = page.locator('[class*="w-72"]')
