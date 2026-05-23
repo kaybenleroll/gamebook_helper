@@ -100,10 +100,34 @@ export default function SectionTracker({
 
       {history.length > 0 && (
         <div>
-          <p className="text-sm text-gray-500 mb-1">History (most recent first)</p>
-          <p className="font-mono text-sm text-gray-700 leading-relaxed">
-            {displayHistory.map((v) => v.sectionNumber).join(' → ')}
-          </p>
+          <p className="text-sm text-text-muted mb-2">History (most recent first)</p>
+          <div className="max-h-48 overflow-y-auto">
+            <div className="relative pl-4 border-l-2 border-panel-border space-y-3">
+              {displayHistory.map((entry, index) => {
+                const isCurrentNode = index === 0
+                return (
+                  <div key={`${entry.sectionNumber}-${entry.visitedAt}`} className="flex items-center gap-3 relative">
+                    <div
+                      className={`absolute -left-5 flex items-center justify-center ${
+                        isCurrentNode
+                          ? 'w-4 h-4 rounded-full bg-header-accent'
+                          : 'w-3 h-3 rounded-full bg-accent-blue'
+                      }`}
+                    />
+                    <span
+                      className={`font-mono ${
+                        isCurrentNode
+                          ? 'font-bold text-text-primary'
+                          : 'text-sm text-text-muted'
+                      }`}
+                    >
+                      {entry.sectionNumber}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
     </section>
