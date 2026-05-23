@@ -7,12 +7,8 @@ import { db } from '../../../lib/db'
 import { sessions, characters, sectionVisits, combats, combatRounds, inventoryItems } from '../../../lib/db/schema'
 import type { CreationRolls } from '../../../lib/db/schema'
 import { eq, asc, desc } from 'drizzle-orm'
-import SessionClient from './SessionClient'
-import DiceRoller from './DiceRoller'
 import MapGrid from './MapGrid'
-import Notes from './Notes'
-import SectionTracker from './SectionTracker'
-import InventoryPanel from './InventoryPanel'
+import LeftColumnClient from './LeftColumnClient'
 
 export default async function SessionPage({
   params,
@@ -153,9 +149,10 @@ export default async function SessionPage({
 
       <div className="flex flex-col lg:flex-row flex-1 gap-4 min-h-0">
         {/* Left column: game panels, scrollable */}
-        <div className="w-full lg:w-[420px] lg:shrink-0 overflow-y-auto flex flex-col gap-4">
-          <SessionClient
+        <div className="w-full lg:w-[420px] lg:shrink-0 overflow-y-auto">
+          <LeftColumnClient
             sessionId={sessionId}
+            savedPanelOrder={session.panelOrder ?? null}
             stats={stats}
             initialStats={character.initialStats as Record<string, unknown>}
             statDefs={gameSystem.stats}
@@ -166,19 +163,12 @@ export default async function SessionPage({
             primaryHealthStat={gameSystem.primaryHealthStat}
             primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
             creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
-          />
-          <DiceRoller defaultDice={gameSystem.defaultDice} />
-          <SectionTracker
-            sessionId={sessionId}
+            defaultDice={gameSystem.defaultDice}
             initialCurrentSection={currentSection}
             initialHistory={sectionHistoryForClient}
-          />
-          <InventoryPanel
-            sessionId={sessionId}
-            gameSystemId={session.gameSystemId}
             initialItems={inventoryForClient}
+            initialNotes={session.notes ?? null}
           />
-          <Notes sessionId={sessionId} initialNotes={session.notes ?? null} />
         </div>
 
         {/* Right column: map, fills remaining space */}

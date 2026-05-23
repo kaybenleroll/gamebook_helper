@@ -65,8 +65,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
     }
 
-    const body = await request.json() as { bookTitle?: unknown; notes?: unknown }
-    const { bookTitle, notes } = body
+    const body = await request.json() as { bookTitle?: unknown; notes?: unknown; panelOrder?: unknown }
+    const { bookTitle, notes, panelOrder } = body
 
     if (bookTitle !== undefined && (typeof bookTitle !== 'string' || bookTitle.trim() === '')) {
       return NextResponse.json({ error: 'bookTitle must be a non-empty string' }, { status: 400 })
@@ -76,8 +76,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'notes must be a string or null' }, { status: 400 })
     }
 
-    if (bookTitle === undefined && notes === undefined) {
-      return NextResponse.json({ error: 'At least one field (bookTitle or notes) must be provided' }, { status: 400 })
+    if (panelOrder !== undefined) {
+      if (!Array.isArray(panelOrder) || !panelOrder.every((item) => typeof item === 'string')) {
+        return NextResponse.json({ error: 'panelOrder must be an array of strings' }, { status: 400 })
+      }
+    }
+
+    if (bookTitle === undefined && notes === undefined && panelOrder === undefined) {
+      return NextResponse.json({ error: 'At least one field (bookTitle, notes, or panelOrder) must be provided' }, { status: 400 })
     }
 
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
@@ -89,9 +95,11 @@ export async function PATCH(
       updatedAt: Date
       bookTitle?: string
       notes?: string | null
+      panelOrder?: string | null
     } = { updatedAt: new Date() }
     if (bookTitle !== undefined) updateFields.bookTitle = (bookTitle as string).trim()
     if (notes !== undefined) updateFields.notes = notes === '' ? null : (notes as string)
+    if (panelOrder !== undefined) updateFields.panelOrder = JSON.stringify(panelOrder)
 
     db.update(sessions)
       .set(updateFields)
@@ -104,6 +112,7 @@ export async function PATCH(
       id: sessionId,
       bookTitle: updatedSession.bookTitle,
       notes: updatedSession.notes ?? null,
+      panelOrder: updatedSession.panelOrder ? JSON.parse(updatedSession.panelOrder) as string[] : null,
     })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
