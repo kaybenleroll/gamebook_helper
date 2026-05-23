@@ -218,3 +218,16 @@ export const inventoryItems = sqliteTable(
   },
   (t) => [index('inventory_items_session_id_idx').on(t.sessionId)],
 )
+
+export const sessionSpells = sqliteTable(
+  'session_spells',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    spellId: text('spell_id').notNull(),
+    usesRemaining: integer('uses_remaining').notNull(),
+  },
+  (t) => [index('session_spells_session_id_idx').on(t.sessionId)],
+)

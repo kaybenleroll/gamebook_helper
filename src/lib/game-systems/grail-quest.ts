@@ -302,6 +302,10 @@ export const grailQuest: GameSystem = {
   primaryHealthStat: 'lifePoints',
   defaultDice: { count: 2, sides: 6, modifier: 0 },
   combat: grailQuestCombat,
+  spells: [
+    { id: 'lightning-bolt', name: 'Lightning Bolt', maxUses: 10, hitCondition: 'Auto-hit', damage: 10 },
+    { id: 'fireball', name: 'Fireball', maxUses: 2, hitCondition: 'Roll 6+ on 2d6', damage: 75 },
+  ],
 }
 
 gameSystemRegistry.register(grailQuest)
