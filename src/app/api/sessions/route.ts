@@ -84,7 +84,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     })
 
     return NextResponse.json({ sessionId }, { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -104,7 +105,8 @@ export async function GET(): Promise<NextResponse> {
       }
     })
     return NextResponse.json(result)
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

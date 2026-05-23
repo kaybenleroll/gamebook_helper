@@ -42,7 +42,8 @@ export async function GET(
     }
 
     return NextResponse.json(rows.map((r) => ({ spellId: r.spellId, usesRemaining: r.usesRemaining })))
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]/spells]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

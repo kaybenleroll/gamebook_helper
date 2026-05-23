@@ -40,7 +40,8 @@ export async function POST(
     const rows = db.select().from(sessionSpells).where(eq(sessionSpells.sessionId, sessionId)).all()
 
     return NextResponse.json(rows.map((r) => ({ spellId: r.spellId, usesRemaining: r.usesRemaining })))
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/spells/reset]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

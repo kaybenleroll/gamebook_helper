@@ -45,7 +45,8 @@ export async function POST(
       .get()!
 
     return NextResponse.json({ spellId: updated.spellId, usesRemaining: updated.usesRemaining })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/spells/[spellId]/cast]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

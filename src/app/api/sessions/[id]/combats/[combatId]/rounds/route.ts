@@ -246,7 +246,8 @@ export async function POST(
       },
       { status: 201 },
     )
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/combats/[combatId]/rounds]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

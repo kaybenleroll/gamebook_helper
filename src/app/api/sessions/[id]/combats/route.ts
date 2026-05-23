@@ -100,7 +100,8 @@ export async function GET(
     const history = historyCombats.map((c) => formatCombat(c, []))
 
     return NextResponse.json({ active: activeWithRounds, history })
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]/combats]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -179,7 +180,8 @@ export async function POST(
     const characterStats = character ? (character.stats as Record<string, unknown>) : undefined
 
     return NextResponse.json(formatCombat(combat!, [], gameSystem, characterStats), { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/combats]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

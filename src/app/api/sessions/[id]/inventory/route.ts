@@ -79,7 +79,8 @@ export async function GET(
     }
 
     return NextResponse.json(items.map(formatItem))
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]/inventory]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -147,7 +148,8 @@ export async function POST(
       .at(-1)!
 
     return NextResponse.json(formatItem(created), { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/inventory]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

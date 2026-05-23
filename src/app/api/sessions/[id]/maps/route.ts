@@ -39,7 +39,8 @@ export async function GET(
       .all()
 
     return NextResponse.json(allMaps.map(formatMap))
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]/maps]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -83,7 +84,8 @@ export async function POST(
       .at(-1)!
 
     return NextResponse.json(formatMap(created), { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/sessions/[id]/maps]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

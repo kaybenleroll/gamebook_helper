@@ -54,7 +54,8 @@ export async function GET(
       .all()
 
     return NextResponse.json(nodes.map(formatNode))
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/maps/[mapId]/nodes]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -100,7 +101,8 @@ export async function POST(
       .get()
 
     return NextResponse.json(formatNode(result), { status: 201 })
-  } catch {
+  } catch (err) {
+    console.error('[POST /api/maps/[mapId]/nodes]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

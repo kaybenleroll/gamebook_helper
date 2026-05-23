@@ -91,7 +91,8 @@ export async function GET(
       .all()
 
     return NextResponse.json(formatCombat(combat, rounds, gameSystem, characterStats))
-  } catch {
+  } catch (err) {
+    console.error('[GET /api/sessions/[id]/combats/[combatId]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -145,7 +146,8 @@ export async function PATCH(
       .all()
 
     return NextResponse.json(formatCombat(updated, rounds))
-  } catch {
+  } catch (err) {
+    console.error('[PATCH /api/sessions/[id]/combats/[combatId]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

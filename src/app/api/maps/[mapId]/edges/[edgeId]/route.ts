@@ -80,7 +80,8 @@ export async function PATCH(
       .get()
 
     return NextResponse.json(formatEdge(result), { status: 200 })
-  } catch {
+  } catch (err) {
+    console.error('[PATCH /api/maps/[mapId]/edges/[edgeId]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -120,7 +121,8 @@ export async function DELETE(
     db.delete(mapEdges).where(and(eq(mapEdges.id, edgeIdNum), eq(mapEdges.mapId, mapIdNum))).run()
 
     return new NextResponse(null, { status: 204 })
-  } catch {
+  } catch (err) {
+    console.error('[DELETE /api/maps/[mapId]/edges/[edgeId]]:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
