@@ -159,6 +159,8 @@ function edgeStyle(connectionType: string): EdgeStyle {
 function directionLabel(direction: string): string {
   if (direction === 'up') return '↑'
   if (direction === 'down') return '↓'
+  if (direction === 'left') return '◄'
+  if (direction === 'right') return '►'
   return direction
 }
 

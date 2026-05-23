@@ -1,22 +1,26 @@
 import type { Direction } from './db/schema'
 
 export const DIRECTION_OFFSETS: Record<Direction, { dx: number; dy: number }> = {
-  N:    { dx: 0,   dy: -120 },
-  S:    { dx: 0,   dy: +120 },
-  E:    { dx: +120, dy: 0   },
-  W:    { dx: -120, dy: 0   },
-  up:   { dx: +85, dy: -85  },
-  down: { dx: +85, dy: +85  },
+  N:     { dx: 0,    dy: -120 },
+  S:     { dx: 0,    dy: +120 },
+  E:     { dx: +120, dy: 0    },
+  W:     { dx: -120, dy: 0    },
+  up:    { dx: +85,  dy: -85  },
+  down:  { dx: +85,  dy: +85  },
+  left:  { dx: -85,  dy: -85  },
+  right: { dx: -85,  dy: +85  },
 }
 
 /** Perpendicular nudge axis for each direction. */
 const PERPENDICULAR_AXIS: Record<Direction, 'x' | 'y'> = {
-  N:    'x',
-  S:    'x',
-  E:    'y',
-  W:    'y',
-  up:   'x',
-  down: 'x',
+  N:     'x',
+  S:     'x',
+  E:     'y',
+  W:     'y',
+  up:    'x',
+  down:  'x',
+  left:  'x',
+  right: 'x',
 }
 
 const COLLISION_RADIUS = 30
