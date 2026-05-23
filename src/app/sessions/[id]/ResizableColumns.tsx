@@ -19,7 +19,7 @@ export default function ResizableColumns({ left, right, defaultLeftWidth = 680 }
   }, [])
 
   useEffect(() => {
-    setLeftWidth(Math.round(window.innerWidth * 0.45))
+    setLeftWidth(Math.round(window.innerWidth * 0.38))
   }, [])
 
   useEffect(() => {
