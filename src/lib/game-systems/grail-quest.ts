@@ -423,8 +423,8 @@ const grailQuestConsumables: ConsumableDefinition[] = [
     itemType: 'potion',
     initialCount: 3,
     doseCount: 6,
-    healDice: '1d6',
-    description: 'restores 1d6 LP',
+    healDice: '2d6',
+    description: 'restores 2d6 LP',
   },
   {
     name: 'Salve',
