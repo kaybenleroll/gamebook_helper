@@ -1,14 +1,18 @@
 import { test, expect } from '@playwright/test'
 
-const BASE = 'http://10.89.2.37:3000'
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://gamebook-app:3000'
+
+// Run all tests serially to avoid SQLite write contention from parallel workers.
+test.describe.configure({ mode: 'serial' })
 
 test.describe('Slice 5 — direction-driven node placement', () => {
   let sessionId: number
 
   test.beforeAll(async ({ request }) => {
     const sessRes = await request.get(`${BASE}/api/sessions`)
-    const sessions = await sessRes.json()
-    sessionId = sessions[0].id
+    const sessions: Array<{ id: number }> = await sessRes.json()
+    // Use the session with the lowest ID (most likely to be a seeded/stable session).
+    sessionId = sessions.reduce((min, s) => (s.id < min ? s.id : min), sessions[0].id)
   })
 
   // ── API level ────────────────────────────────────────────────────────────
@@ -104,31 +108,65 @@ test.describe('Slice 5 — direction-driven node placement', () => {
         data: { name: 'Slice5 UI' },
       })).json()
       uiMapId = m.id
+
+      // Clear creation rolls so the modal does not block canvas interaction.
+      await request.patch(`${BASE}/api/sessions/${sessionId}/character`, {
+        data: { clearCreationRolls: true },
+      })
     })
 
     test.afterAll(async ({ request }) => {
       await request.delete(`${BASE}/api/sessions/${sessionId}/maps/${uiMapId}`)
     })
 
+    /**
+     * Helper: click the SVG canvas background at a point guaranteed to be
+     * within the rendered SVG bounding box. The background rect uses world
+     * coordinates (−10000 to +10000), so Playwright's default click target
+     * for the element falls outside the visible viewport. Using page.mouse
+     * dispatches a real pointer event at a specific screen coordinate, letting
+     * the browser resolve the target element correctly.
+     *
+     * Clicks at the bottom-right quadrant (75%, 75%) of the SVG to avoid
+     * hitting nodes that are typically placed near world origin (SVG centre).
+     */
+    async function clickBackground(page: import('@playwright/test').Page) {
+      const bgEl = page.locator('[data-role="background"]')
+      // Wait for the map canvas SVG to be in the DOM.
+      await bgEl.waitFor({ state: 'attached', timeout: 8000 })
+
+      // Locate the SVG that actually contains the map canvas background
+      // (not a favicon or icon SVG). `svg:has([data-role="background"])` is the
+      // map canvas SVG — its bounding box gives reliable screen coordinates.
+      const svgEl = page.locator('svg:has([data-role="background"])')
+      await svgEl.scrollIntoViewIfNeeded()
+      const box = await svgEl.boundingBox()
+      if (!box || box.width < 10 || box.height < 10) {
+        throw new Error(`Map SVG bounding box too small or missing: ${JSON.stringify(box)}`)
+      }
+      // Click at 75% x/y — away from world origin (SVG centre) where nodes cluster.
+      await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.75)
+    }
+
     test('background click on empty map shows direction picker', async ({ page }) => {
       await page.goto(`${BASE}/sessions/${sessionId}?mapId=${uiMapId}`)
-      const svg = page.locator('svg').first()
+      await page.waitForLoadState('networkidle')
+      const svg = page.locator('svg:has([data-role="background"])')
       await svg.scrollIntoViewIfNeeded()
       await expect(svg).toBeVisible({ timeout: 5000 })
 
-      // Click the SVG background rect directly (it has data-role="background")
-      await page.locator('[data-role="background"]').click()
+      await clickBackground(page)
       await page.waitForTimeout(400)
 
       // Direction picker should appear
       await expect(page.locator('text=Choose direction')).toBeVisible({ timeout: 3000 })
-      await page.screenshot({ path: '/home/mcooney/workspace/gamebook_helper/.scratch/slice5-picker-empty.png' })
+      await page.screenshot({ path: '/app/.scratch/slice5-picker-empty.png' })
 
       // "No connection" should NOT show (no parent selected)
       await expect(page.locator('text=No connection')).not.toBeVisible()
 
       // Cancel closes picker without creating node
-      await page.click('text=Cancel')
+      await page.locator('button:has-text("Cancel")').click()
       await expect(page.locator('text=Choose direction')).not.toBeVisible()
 
       // No nodes created
@@ -138,21 +176,22 @@ test.describe('Slice 5 — direction-driven node placement', () => {
 
     test('background click → N creates a node on the canvas', async ({ page }) => {
       await page.goto(`${BASE}/sessions/${sessionId}?mapId=${uiMapId}`)
-      const svg = page.locator('svg').first()
+      await page.waitForLoadState('networkidle')
+      const svg = page.locator('svg:has([data-role="background"])')
       await svg.scrollIntoViewIfNeeded()
       await expect(svg).toBeVisible({ timeout: 5000 })
 
-      await page.locator('[data-role="background"]').click()
+      await clickBackground(page)
       await page.waitForTimeout(400)
 
       await expect(page.locator('text=Choose direction')).toBeVisible({ timeout: 3000 })
       await page.click('[aria-label="North"]')
       await page.waitForTimeout(600)
 
-      // A node circle should now appear on the canvas
-      const circle = svg.locator('circle').first()
+      // A node circle should now appear on the canvas (data-node-id identifies map nodes).
+      const circle = svg.locator('circle[data-node-id]').first()
       await expect(circle).toBeVisible({ timeout: 5000 })
-      await page.screenshot({ path: '/home/mcooney/workspace/gamebook_helper/.scratch/slice5-first-node.png' })
+      await page.screenshot({ path: '/app/.scratch/slice5-first-node.png' })
 
       // Verify node exists in DB
       const nodes = await (await page.request.get(`${BASE}/api/maps/${uiMapId}/nodes`)).json()
@@ -161,27 +200,28 @@ test.describe('Slice 5 — direction-driven node placement', () => {
 
     test('with node selected: picker shows "No connection", direction creates edge + new node', async ({ page }) => {
       await page.goto(`${BASE}/sessions/${sessionId}?mapId=${uiMapId}`)
-      const svg = page.locator('svg').first()
+      await page.waitForLoadState('networkidle')
+      const svg = page.locator('svg:has([data-role="background"])')
       await svg.scrollIntoViewIfNeeded()
       await expect(svg).toBeVisible({ timeout: 5000 })
 
-      // Click existing node to select it
-      const circle = svg.locator('circle').first()
+      // Click existing node to select it (use data-node-id to avoid favicon circles).
+      const circle = svg.locator('circle[data-node-id]').first()
       await expect(circle).toBeVisible({ timeout: 8000 })
-      await circle.click()
+      await circle.dispatchEvent('click')
       await page.waitForTimeout(300)
 
       const panel = page.locator('[class*="w-72"]')
       await expect(panel).toBeVisible({ timeout: 3000 })
 
       // Click background with node selected
-      await page.locator('[data-role="background"]').click()
+      await clickBackground(page)
       await page.waitForTimeout(400)
 
       // Picker shows with "No connection" option (hasParent=true)
       await expect(page.locator('text=Choose direction')).toBeVisible({ timeout: 3000 })
       await expect(page.locator('text=No connection')).toBeVisible()
-      await page.screenshot({ path: '/home/mcooney/workspace/gamebook_helper/.scratch/slice5-picker-with-parent.png' })
+      await page.screenshot({ path: '/app/.scratch/slice5-picker-with-parent.png' })
 
       const beforeNodes = await (await page.request.get(`${BASE}/api/maps/${uiMapId}/nodes`)).json()
       const prevCount = beforeNodes.length
@@ -198,17 +238,18 @@ test.describe('Slice 5 — direction-driven node placement', () => {
       const edge = edges[edges.length - 1]
       expect(edge.direction).toBe('S')
 
-      await page.screenshot({ path: '/home/mcooney/workspace/gamebook_helper/.scratch/slice5-edge-rendered.png' })
+      await page.screenshot({ path: '/app/.scratch/slice5-edge-rendered.png' })
     })
 
     test('"Add connected node" button in detail panel opens picker', async ({ page }) => {
       await page.goto(`${BASE}/sessions/${sessionId}?mapId=${uiMapId}`)
-      const svg = page.locator('svg').first()
+      await page.waitForLoadState('networkidle')
+      const svg = page.locator('svg:has([data-role="background"])')
       await svg.scrollIntoViewIfNeeded()
 
-      const circle = svg.locator('circle').first()
+      const circle = svg.locator('circle[data-node-id]').first()
       await expect(circle).toBeVisible({ timeout: 8000 })
-      await circle.click()
+      await circle.dispatchEvent('click')
       await page.waitForTimeout(300)
 
       const panel = page.locator('[class*="w-72"]')
@@ -219,25 +260,26 @@ test.describe('Slice 5 — direction-driven node placement', () => {
 
       await expect(page.locator('text=Choose direction')).toBeVisible({ timeout: 3000 })
       await expect(page.locator('text=No connection')).toBeVisible()
-      await page.screenshot({ path: '/home/mcooney/workspace/gamebook_helper/.scratch/slice5-panel-button.png' })
+      await page.screenshot({ path: '/app/.scratch/slice5-panel-button.png' })
 
-      await page.click('text=Cancel')
+      await page.locator('button:has-text("Cancel")').click()
     })
 
     test('"No connection" creates free node without edge', async ({ page }) => {
       await page.goto(`${BASE}/sessions/${sessionId}?mapId=${uiMapId}`)
-      const svg = page.locator('svg').first()
+      await page.waitForLoadState('networkidle')
+      const svg = page.locator('svg:has([data-role="background"])')
       await svg.scrollIntoViewIfNeeded()
 
-      const circle = svg.locator('circle').first()
+      const circle = svg.locator('circle[data-node-id]').first()
       await expect(circle).toBeVisible({ timeout: 8000 })
-      await circle.click()
+      await circle.dispatchEvent('click')
       await page.waitForTimeout(300)
 
       const beforeNodes = await (await page.request.get(`${BASE}/api/maps/${uiMapId}/nodes`)).json()
       const beforeEdges = await (await page.request.get(`${BASE}/api/maps/${uiMapId}/edges`)).json()
 
-      await page.locator('[data-role="background"]').click()
+      await clickBackground(page)
       await page.waitForTimeout(400)
       await expect(page.locator('text=Choose direction')).toBeVisible({ timeout: 3000 })
 
