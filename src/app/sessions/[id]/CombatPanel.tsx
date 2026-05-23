@@ -233,7 +233,7 @@ export default function CombatPanel({
         if (data.xpPrompt) {
           setShowXpModal(true)
         }
-        if (data.combat.outcome !== 'in_progress') {
+        if (data.combat.outcome !== 'in_progress' && !data.xpPrompt) {
           onCombatEnd?.()
         }
       } else {
@@ -306,7 +306,7 @@ export default function CombatPanel({
         onStatsChange(data.characterStats, data.characterInitialStats)
         setPendingResult(null)
         if (data.xpPrompt) setShowXpModal(true)
-        if (data.combat.outcome !== 'in_progress') {
+        if (data.combat.outcome !== 'in_progress' && !data.xpPrompt) {
           onCombatEnd?.()
         }
       } else {
@@ -357,6 +357,7 @@ export default function CombatPanel({
       setIsSavingXp(false)
       setShowXpModal(false)
       setXpInput('')
+      onCombatEnd?.()
     }
   }
 
@@ -413,7 +414,7 @@ export default function CombatPanel({
             />
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => { setShowXpModal(false); setXpInput('') }}
+                onClick={() => { setShowXpModal(false); setXpInput(''); onCombatEnd?.() }}
                 className="px-4 py-2 border rounded"
               >
                 Skip
