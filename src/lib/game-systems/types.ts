@@ -32,11 +32,15 @@ export type CombatState = {
   characterStats: unknown
 }
 
+export type EnemyStatField =
+  | { key: string; label: string; type: 'number' | 'text'; required: boolean; default?: string | number }
+  | { key: string; label: string; type: 'radio'; options: Array<{ value: string; label: string }>; required?: boolean; default?: string }
+
 export type CombatModule = {
-  enemyStatFields: Array<{ key: string; label: string; type: 'number' | 'text'; required: boolean; default?: string | number }>
+  enemyStatFields: Array<EnemyStatField>
   primaryEnemyHealthStat: string
   validateEnemyStats(input: unknown): string[]
-  start(input: unknown): { enemyState: unknown; metadata: unknown }
+  start(input: unknown, options?: { initiativeOverride?: 'player' | 'enemy' }): { enemyState: unknown; metadata: unknown; startNarrative?: string }
   roundOptions(state: CombatState): RoundOption[]
   resolveRound(args: {
     enemyStats: unknown

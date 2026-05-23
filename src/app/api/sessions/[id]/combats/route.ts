@@ -141,9 +141,20 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid enemy stats', details: validationErrors }, { status: 400 })
     }
 
-    const { enemyState, metadata } = gameSystem.combat.start(body)
-
     const bodyRecord = body as Record<string, unknown>
+    const initiativeModeRaw = bodyRecord['initiativeMode']
+    const initiativeOverride: 'player' | 'enemy' | undefined =
+      initiativeModeRaw === 'player' ? 'player'
+      : initiativeModeRaw === 'enemy' ? 'enemy'
+      : undefined
+
+    const { enemyState, metadata, startNarrative } = gameSystem.combat.start(body, { initiativeOverride })
+
+    const metadataWithNarrative: Record<string, unknown> = {
+      ...(metadata as Record<string, unknown>),
+      ...(startNarrative !== undefined ? { startNarrative } : {}),
+    }
+
     const enemyName =
       typeof bodyRecord['name'] === 'string' ? bodyRecord['name'] : 'Unknown enemy'
 
@@ -155,7 +166,7 @@ export async function POST(
           enemyName,
           enemyStats: bodyRecord,
           enemyState: enemyState as Record<string, unknown>,
-          metadata: metadata as Record<string, unknown>,
+          metadata: metadataWithNarrative,
           outcome: 'in_progress',
         })
         .run()
