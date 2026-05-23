@@ -205,6 +205,12 @@ export default async function SessionPage({
         </div>
       )}
 
+      <SectionBreadcrumb
+        sessionId={sessionId}
+        initialCurrentSection={currentSection}
+        initialHistory={sectionHistoryForClient}
+      />
+
       <ResizableColumns
         left={
           <LeftColumnClient
