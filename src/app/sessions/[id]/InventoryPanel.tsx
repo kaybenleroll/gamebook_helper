@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import InventoryTsvImport from './InventoryTsvImport'
 
 const FF_BACKPACK_LIMIT = 10
 
@@ -26,6 +27,10 @@ interface Props {
 export default function InventoryPanel({ sessionId, gameSystemId, initialItems }: Props) {
   const [items, setItems] = useState<InventoryItem[]>(initialItems)
   const [nameInput, setNameInput] = useState('')
+
+  const handleImported = useCallback((newItems: InventoryItem[]) => {
+    setItems((prev) => [...prev, ...newItems])
+  }, [])
   const [quantityInput, setQuantityInput] = useState('1')
   const [isSpecialInput, setIsSpecialInput] = useState(false)
   const [editingQuantity, setEditingQuantity] = useState<Record<number, string>>({})
@@ -236,7 +241,9 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
         </table>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <InventoryTsvImport sessionId={sessionId} onImported={handleImported} />
+
+      <div className="flex items-center gap-2 flex-wrap mt-3">
         <input
           type="text"
           value={nameInput}
