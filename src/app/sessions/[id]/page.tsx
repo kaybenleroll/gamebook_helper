@@ -10,6 +10,7 @@ import { eq, asc, desc } from 'drizzle-orm'
 import MapGrid from './MapGrid'
 import LeftColumnClient from './LeftColumnClient'
 import ResizableColumns from './ResizableColumns'
+import SectionBreadcrumb from './SectionBreadcrumb'
 
 export default async function SessionPage({
   params,
@@ -204,6 +205,12 @@ export default async function SessionPage({
         </div>
       )}
 
+      <SectionBreadcrumb
+        sessionId={sessionId}
+        initialCurrentSection={currentSection}
+        initialHistory={sectionHistoryForClient}
+      />
+
       <ResizableColumns
         defaultLeftWidth={560}
         left={
@@ -221,8 +228,6 @@ export default async function SessionPage({
             primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
             creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
             defaultDice={gameSystem.defaultDice}
-            initialCurrentSection={currentSection}
-            initialHistory={sectionHistoryForClient}
             initialItems={inventoryForClient}
             initialNotes={session.notes ?? null}
             spellDefinitions={spellDefs}
