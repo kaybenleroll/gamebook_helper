@@ -629,7 +629,7 @@ export default function CombatPanel({
           {pendingResult && (
             <div className="mb-4 border rounded p-3 bg-yellow-50">
               <h4 className="font-semibold mb-2 text-sm">Override round result?</h4>
-              <div className="grid grid-cols-2 gap-3">
+              <div className={`grid gap-3 ${pendingResult.phaseTwoSkipped ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <div>
                   <label className="text-xs block mb-1">Damage dealt</label>
                   <input
@@ -640,16 +640,18 @@ export default function CombatPanel({
                     className="border rounded px-2 py-1 text-sm w-full"
                   />
                 </div>
-                <div>
-                  <label className="text-xs block mb-1">Damage taken</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={overrideDamageTaken}
-                    onChange={(e) => setOverrideDamageTaken(e.target.value)}
-                    className="border rounded px-2 py-1 text-sm w-full"
-                  />
-                </div>
+                {!pendingResult.phaseTwoSkipped && (
+                  <div>
+                    <label className="text-xs block mb-1">Damage taken</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={overrideDamageTaken}
+                      onChange={(e) => setOverrideDamageTaken(e.target.value)}
+                      className="border rounded px-2 py-1 text-sm w-full"
+                    />
+                  </div>
+                )}
               </div>
               {roundError && <p className="text-red-600 text-sm mt-2">{roundError}</p>}
               <button
