@@ -57,9 +57,9 @@ export default function SpellsPanel({ sessionId, spells, initialSpellState }: Pr
   }
 
   return (
-    <section className="mt-8">
+    <section className="mt-8 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold">Spells</h2>
+        <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3">Spells</h2>
         <button
           onClick={() => void resetSpells()}
           className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50"

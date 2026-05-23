@@ -19,8 +19,8 @@ export default function Notes({ sessionId, initialNotes }: Props) {
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="text-lg font-semibold mb-2">Notes</h2>
+    <section className="mt-8 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
+      <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Notes</h2>
       <textarea
         className="w-full rounded border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y min-h-[8rem]"
         placeholder="Add notes about your adventure…"

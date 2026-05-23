@@ -67,8 +67,8 @@ export default function SectionTracker({
   const displayHistory = [...history].reverse()
 
   return (
-    <section className="mt-6">
-      <h2 className="text-lg font-semibold mb-3">Section Tracker</h2>
+    <section className="mt-6 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
+      <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Section Tracker</h2>
 
       <div className="mb-4">
         <span className="text-sm text-gray-500 uppercase tracking-wide">Current section</span>
