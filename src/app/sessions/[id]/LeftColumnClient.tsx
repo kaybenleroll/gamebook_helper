@@ -17,6 +17,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import SessionClient from './SessionClient'
+import CombatPanel from './CombatPanel'
 import DiceRoller from './DiceRoller'
 import SectionTracker from './SectionTracker'
 import InventoryPanel from './InventoryPanel'
@@ -27,6 +28,7 @@ import type { CreationRolls } from '../../../lib/db/schema'
 
 export const PANEL_IDS = [
   'character-sheet',
+  'combat',
   'dice-roller',
   'section-tracker',
   'inventory',
@@ -38,6 +40,7 @@ export type PanelId = (typeof PANEL_IDS)[number]
 
 const PANEL_SPANS: Record<PanelId, 1 | 2> = {
   'character-sheet': 2,
+  'combat': 2,
   'dice-roller': 1,
   'section-tracker': 1,
   inventory: 2,
@@ -169,8 +172,8 @@ export interface LeftColumnProps {
 export default function LeftColumnClient({
   sessionId,
   savedPanelOrder,
-  stats,
-  initialStats,
+  stats: initialStatsProp,
+  initialStats: initialInitialStats,
   statDefs,
   gameSystemId,
   isGameOver,
@@ -187,6 +190,18 @@ export default function LeftColumnClient({
   spellDefinitions,
   initialSpellState,
 }: LeftColumnProps) {
+  // Shared character stats — both CharacterSheet and CombatPanel read/write these
+  const [currentStats, setCurrentStats] = useState(initialStatsProp)
+  const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
+
+  function handleStatsChange(
+    newStats: Record<string, unknown>,
+    newInitialStats: Record<string, unknown>,
+  ) {
+    setCurrentStats(newStats)
+    setCurrentInitialStats(newInitialStats)
+  }
+
   const parsed = savedPanelOrder
     ? (() => {
         try {
@@ -233,18 +248,29 @@ export default function LeftColumnClient({
     'character-sheet': (
       <SessionClient
         sessionId={sessionId}
-        stats={stats}
-        initialStats={initialStats}
+        stats={currentStats}
+        initialStats={currentInitialStats}
         statDefs={statDefs}
         gameSystemId={gameSystemId}
         isGameOver={isGameOver}
-        initialCombat={initialCombat}
-        enemyStatFields={enemyStatFields}
         primaryHealthStat={primaryHealthStat}
-        primaryEnemyHealthStat={primaryEnemyHealthStat}
         creationRolls={creationRolls}
+        onStatsChange={handleStatsChange}
       />
     ),
+    'combat': enemyStatFields ? (
+      <CombatPanel
+        sessionId={sessionId}
+        initialCombat={initialCombat}
+        enemyStatFields={enemyStatFields}
+        characterStats={currentStats}
+        initialStats={currentInitialStats}
+        isGameOver={isGameOver}
+        onStatsChange={handleStatsChange}
+        primaryHealthStat={primaryHealthStat}
+        primaryEnemyHealthStat={primaryEnemyHealthStat}
+      />
+    ) : null,
     'dice-roller': <DiceRoller defaultDice={defaultDice} />,
     'section-tracker': (
       <SectionTracker
