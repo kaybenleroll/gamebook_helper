@@ -127,8 +127,8 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
   }
 
   return (
-    <section className="mt-8">
-      <h2 className="text-lg font-semibold mb-3">Inventory</h2>
+    <section className="mt-8 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
+      <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Inventory</h2>
 
       {isFightingFantasy && (
         <p className="text-sm text-gray-600 mb-3">

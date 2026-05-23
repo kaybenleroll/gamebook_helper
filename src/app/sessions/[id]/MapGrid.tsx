@@ -418,7 +418,7 @@ export default function MapGrid({ sessionId }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
       {/* Tab bar */}
       <div className="flex items-center border-b border-gray-200 gap-1 flex-wrap">
         {mapList.length === 0 ? (

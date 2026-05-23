@@ -44,8 +44,8 @@ export default function DiceRoller({ defaultDice }: Props) {
   }
 
   return (
-    <section className="mt-6">
-      <h2 className="text-lg font-semibold mb-3">Dice Roller</h2>
+    <section className="mt-6 bg-panel-bg rounded-xl shadow-sm border border-panel-border p-4">
+      <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Dice Roller</h2>
       <div className="flex items-center gap-4">
         <button
           onClick={roll}
