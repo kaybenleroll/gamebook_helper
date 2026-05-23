@@ -21,7 +21,8 @@ import DiceRoller from './DiceRoller'
 import SectionTracker from './SectionTracker'
 import InventoryPanel from './InventoryPanel'
 import Notes from './Notes'
-import type { StatDefinition, CombatModule, DiceSpec } from '../../../lib/game-systems/types'
+import SpellsPanel from './SpellsPanel'
+import type { StatDefinition, CombatModule, DiceSpec, SpellDefinition } from '../../../lib/game-systems/types'
 import type { CreationRolls } from '../../../lib/db/schema'
 
 export const PANEL_IDS = [
@@ -30,6 +31,7 @@ export const PANEL_IDS = [
   'section-tracker',
   'inventory',
   'notes',
+  'spells',
 ] as const
 
 export type PanelId = (typeof PANEL_IDS)[number]
@@ -40,16 +42,20 @@ const PANEL_SPANS: Record<PanelId, 1 | 2> = {
   'section-tracker': 1,
   inventory: 2,
   notes: 2,
+  spells: 1,
 }
 
 function isValidPanelOrder(order: unknown): order is PanelId[] {
   if (!Array.isArray(order)) return false
   const validIds = new Set<string>(PANEL_IDS)
-  return (
-    order.length === PANEL_IDS.length &&
-    order.every((item) => typeof item === 'string' && validIds.has(item)) &&
-    new Set(order).size === PANEL_IDS.length
-  )
+  if (!order.every((item) => typeof item === 'string' && validIds.has(item))) return false
+  if (new Set(order).size !== order.length) return false
+  return true
+}
+
+function normalisePanelOrder(order: PanelId[]): PanelId[] {
+  const missing = PANEL_IDS.filter((id) => !order.includes(id))
+  return missing.length > 0 ? [...order, ...missing] : order
 }
 
 interface SortableItemProps {
@@ -133,6 +139,11 @@ interface SectionEntry {
   visitedAt: string
 }
 
+interface SpellState {
+  spellId: string
+  usesRemaining: number
+}
+
 export interface LeftColumnProps {
   sessionId: number
   savedPanelOrder: string | null
@@ -151,6 +162,8 @@ export interface LeftColumnProps {
   initialHistory: SectionEntry[]
   initialItems: InventoryItem[]
   initialNotes: string | null
+  spellDefinitions: SpellDefinition[]
+  initialSpellState: SpellState[]
 }
 
 export default function LeftColumnClient({
@@ -171,6 +184,8 @@ export default function LeftColumnClient({
   initialHistory,
   initialItems,
   initialNotes,
+  spellDefinitions,
+  initialSpellState,
 }: LeftColumnProps) {
   const parsed = savedPanelOrder
     ? (() => {
@@ -183,7 +198,7 @@ export default function LeftColumnClient({
     : null
 
   const [order, setOrder] = useState<PanelId[]>(
-    isValidPanelOrder(parsed) ? parsed : [...PANEL_IDS],
+    isValidPanelOrder(parsed) ? normalisePanelOrder(parsed) : [...PANEL_IDS],
   )
 
   const sensors = useSensors(
@@ -246,6 +261,13 @@ export default function LeftColumnClient({
       />
     ),
     notes: <Notes sessionId={sessionId} initialNotes={initialNotes} />,
+    spells: (
+      <SpellsPanel
+        sessionId={sessionId}
+        spells={spellDefinitions}
+        initialSpellState={initialSpellState}
+      />
+    ),
   }
 
   return (

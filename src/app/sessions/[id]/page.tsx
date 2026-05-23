@@ -4,7 +4,7 @@ import Link from 'next/link'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
-import { sessions, characters, sectionVisits, combats, combatRounds, inventoryItems } from '../../../lib/db/schema'
+import { sessions, characters, sectionVisits, combats, combatRounds, inventoryItems, sessionSpells } from '../../../lib/db/schema'
 import type { CreationRolls } from '../../../lib/db/schema'
 import { eq, asc, desc } from 'drizzle-orm'
 import MapGrid from './MapGrid'
@@ -128,6 +128,32 @@ export default async function SessionPage({
           : new Date((item.createdAt as number) * 1000).toISOString(),
     }))
 
+  const spellDefs = gameSystem.spells ?? []
+
+  let spellStateRows = db
+    .select()
+    .from(sessionSpells)
+    .where(eq(sessionSpells.sessionId, sessionId))
+    .all()
+
+  if (spellStateRows.length === 0 && spellDefs.length > 0) {
+    for (const spell of spellDefs) {
+      db.insert(sessionSpells)
+        .values({ sessionId, spellId: spell.id, usesRemaining: spell.maxUses })
+        .run()
+    }
+    spellStateRows = db
+      .select()
+      .from(sessionSpells)
+      .where(eq(sessionSpells.sessionId, sessionId))
+      .all()
+  }
+
+  const spellStateForClient = spellStateRows.map((r) => ({
+    spellId: r.spellId,
+    usesRemaining: r.usesRemaining,
+  }))
+
   return (
     <main className="p-4 h-screen flex flex-col">
       <div className="mb-4 shrink-0">
@@ -169,6 +195,8 @@ export default async function SessionPage({
             initialHistory={sectionHistoryForClient}
             initialItems={inventoryForClient}
             initialNotes={session.notes ?? null}
+            spellDefinitions={spellDefs}
+            initialSpellState={spellStateForClient}
           />
         }
         right={

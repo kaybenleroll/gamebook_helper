@@ -55,6 +55,14 @@ export type CombatModule = {
   }
 }
 
+export interface SpellDefinition {
+  id: string
+  name: string
+  maxUses: number
+  hitCondition: string
+  damage: number
+}
+
 export interface GameSystem {
   id: string
   name: string
@@ -62,4 +70,5 @@ export interface GameSystem {
   primaryHealthStat: string
   defaultDice: DiceSpec
   combat?: CombatModule
+  spells?: SpellDefinition[]
 }
