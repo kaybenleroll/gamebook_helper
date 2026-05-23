@@ -193,6 +193,17 @@ export default async function SessionPage({
         </Link>
         <h1 className="text-2xl font-bold mt-2">{session.bookTitle}</h1>
         <p className="text-gray-500">{gameSystem.name}</p>
+        <nav className="flex gap-4 mt-3 border-b border-gray-200 pb-2">
+          <span className="text-sm font-semibold text-gray-900 border-b-2 border-gray-900 pb-1 -mb-3">
+            Session
+          </span>
+          <Link
+            href={`/sessions/${sessionId}/log`}
+            className="text-sm text-gray-600 hover:text-gray-900 hover:underline"
+          >
+            Log
+          </Link>
+        </nav>
       </div>
 
       {isGameOver && (
