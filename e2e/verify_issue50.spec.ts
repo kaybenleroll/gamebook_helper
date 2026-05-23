@@ -43,29 +43,33 @@ test.describe('Issue #50 — typed stat editing', () => {
 
     await page.getByLabel('Set Life Points').fill('+5')
     await page.getByLabel('Apply Life Points change').click()
-    await page.waitForTimeout(400)
 
-    const afterLP = await page.locator('span.font-mono').first().textContent()
-    expect(parseInt(afterLP ?? '0')).toBe(15)
+    await expect(page.locator('span.font-mono').first()).toContainText('15')
   })
 
-  test('typed absolute value sets current LP exactly', async ({ page }) => {
+  test('typed absolute value sets current LP exactly', async ({ page, request: req }) => {
+    // Seed LP to a known value so the absolute set is unambiguous
+    await req.patch(`/api/sessions/${sessionId}/character`, {
+      data: { stat: 'lifePoints', value: 10 },
+    })
+
     await page.goto(`/sessions/${sessionId}`)
     await dismissModal(page)
     await page.getByLabel('Set Life Points').fill('15')
     await page.getByLabel('Apply Life Points change').click()
-    await page.waitForTimeout(400)
 
-    const afterLP = await page.locator('span.font-mono').first().textContent()
-    expect(parseInt(afterLP ?? '0')).toBe(15)
+    await expect(page.locator('span.font-mono').first()).toContainText('15')
   })
 
   test('Set button on starting column updates initial LP', async ({ page }) => {
     await page.goto(`/sessions/${sessionId}`)
     await dismissModal(page)
     await page.getByLabel('Set starting Life Points').fill('40')
+    const responsePromise = page.waitForResponse(
+      resp => resp.url().includes(`/api/sessions/${sessionId}/character`) && resp.status() === 200
+    )
     await page.getByLabel('Apply starting Life Points change').click()
-    await page.waitForTimeout(400)
+    await responsePromise
 
     const sessionData = await page.request.get(`/api/sessions/${sessionId}`)
     const json = (await sessionData.json()) as { character: { initialStats: { lifePoints: number } } }
