@@ -250,6 +250,7 @@ export default function LeftColumnClient({
 
   return (
     <DndContext
+      id="panel-sort"
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
