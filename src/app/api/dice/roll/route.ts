@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { rollDice } from '../../../../lib/dice'
+import { rollDice, parseDiceFormula } from '../../../../lib/dice'
 import logger from '../../../../lib/logger'
-
-// Parses a dice formula in NdN or NdN+M / NdN-M format.
-// Returns null if the formula is invalid.
-function parseFormula(formula: string): { count: number; sides: number; modifier: number } | null {
-  const match = formula.trim().match(/^(\d+)d(\d+)([+-]\d+)?$/i)
-  if (!match) return null
-
-  const count = parseInt(match[1], 10)
-  const sides = parseInt(match[2], 10)
-  const modifier = match[3] ? parseInt(match[3], 10) : 0
-
-  if (count < 1 || sides < 1) return null
-
-  return { count, sides, modifier }
-}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -26,7 +11,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'formula is required and must be a string' }, { status: 400 })
     }
 
-    const parsed = parseFormula(formula)
+    const parsed = parseDiceFormula(formula)
     if (!parsed) {
       return NextResponse.json(
         { error: `Invalid dice formula: "${formula}". Expected format: NdN, e.g. 2d6 or 1d6+2` },
@@ -35,10 +20,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const { count, sides, modifier } = parsed
-    const rolls = rollDice(count, sides)
-    const total = rolls.reduce((sum, r) => sum + r, 0) + modifier
+    const { attempts, result } = rollDice(count, sides, modifier)
+    const rolls = attempts[0].dice
 
-    return NextResponse.json({ rolls, total })
+    return NextResponse.json({ rolls, total: result })
   } catch (err) {
     logger.error({ err }, '[POST /api/dice/roll] error')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
