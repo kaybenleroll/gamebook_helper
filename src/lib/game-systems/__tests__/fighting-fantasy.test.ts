@@ -131,6 +131,12 @@ describe('fightingFantasy stat ceiling enforcement', () => {
   })
 })
 
+// Build a RollResult mock from an array of dice values (single attempt, no modifier).
+function makeRollResult(dice: number[]) {
+  const total = dice.reduce((a, b) => a + b, 0)
+  return { result: total, best: total, attempts: [{ dice, total }] }
+}
+
 describe('fightingFantasy testLuck', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let rollDiceSpy: any
@@ -149,7 +155,7 @@ describe('fightingFantasy testLuck', () => {
 
   it('succeeds when roll is less than or equal to current LUCK', () => {
     // Luck = 8, roll = 7 → success
-    rollDiceSpy.mockReturnValue([3, 4])
+    rollDiceSpy.mockReturnValue(makeRollResult([3, 4]))
     const stats = { skill: 10, stamina: 18, luck: 8 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(result.roll).toBe(7)
@@ -158,7 +164,7 @@ describe('fightingFantasy testLuck', () => {
 
   it('succeeds when roll exactly equals current LUCK', () => {
     // Luck = 7, roll = 7 → success (equal counts as success)
-    rollDiceSpy.mockReturnValue([3, 4])
+    rollDiceSpy.mockReturnValue(makeRollResult([3, 4]))
     const stats = { skill: 10, stamina: 18, luck: 7 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(result.roll).toBe(7)
@@ -167,7 +173,7 @@ describe('fightingFantasy testLuck', () => {
 
   it('fails when roll is greater than current LUCK', () => {
     // Luck = 6, roll = 9 → failure
-    rollDiceSpy.mockReturnValue([4, 5])
+    rollDiceSpy.mockReturnValue(makeRollResult([4, 5]))
     const stats = { skill: 10, stamina: 18, luck: 6 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(result.roll).toBe(9)
@@ -176,7 +182,7 @@ describe('fightingFantasy testLuck', () => {
 
   it('decrements LUCK by 1 on success', () => {
     // Luck = 8, roll = 5 → success, newLuck should be 7
-    rollDiceSpy.mockReturnValue([2, 3])
+    rollDiceSpy.mockReturnValue(makeRollResult([2, 3]))
     const stats = { skill: 10, stamina: 18, luck: 8 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(result.newLuck).toBe(7)
@@ -184,7 +190,7 @@ describe('fightingFantasy testLuck', () => {
 
   it('decrements LUCK by 1 on failure', () => {
     // Luck = 6, roll = 11 → failure, newLuck should be 5
-    rollDiceSpy.mockReturnValue([5, 6])
+    rollDiceSpy.mockReturnValue(makeRollResult([5, 6]))
     const stats = { skill: 10, stamina: 18, luck: 6 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(result.newLuck).toBe(5)
@@ -197,7 +203,7 @@ describe('fightingFantasy testLuck', () => {
 
   it('LUCK cannot go below 0 — newLuck is 0 when starting from 1', () => {
     // Luck = 1 — any roll succeeds or fails; newLuck must be 0, not negative
-    rollDiceSpy.mockReturnValue([1, 1])
+    rollDiceSpy.mockReturnValue(makeRollResult([1, 1]))
     const stats = { skill: 10, stamina: 18, luck: 1 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(result.newLuck).toBe(0)
@@ -205,7 +211,7 @@ describe('fightingFantasy testLuck', () => {
   })
 
   it('returns a non-empty message string', () => {
-    rollDiceSpy.mockReturnValue([3, 3])
+    rollDiceSpy.mockReturnValue(makeRollResult([3, 3]))
     const stats = { skill: 10, stamina: 18, luck: 8 }
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(typeof result.message).toBe('string')

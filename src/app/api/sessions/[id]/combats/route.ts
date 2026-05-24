@@ -4,56 +4,8 @@ import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
 import { db } from '../../../../../lib/db'
 import { sessions, characters, combats, combatRounds } from '../../../../../lib/db/schema'
 import { eq, desc, asc } from 'drizzle-orm'
-import type { GameSystem } from '../../../../../lib/game-systems/types'
+import { formatCombat } from '../../../../../lib/combat-utils'
 import logger from '../../../../../lib/logger'
-
-function formatCombat(
-  combat: typeof combats.$inferSelect,
-  rounds: (typeof combatRounds.$inferSelect)[],
-  gameSystem?: GameSystem,
-  characterStats?: Record<string, unknown>,
-) {
-  const availableRoundOptions =
-    combat.outcome === 'in_progress' && gameSystem?.combat && characterStats
-      ? gameSystem.combat.roundOptions({
-          enemyStats: combat.enemyStats,
-          enemyState: combat.enemyState,
-          metadata: combat.metadata,
-          characterStats,
-        })
-      : undefined
-
-  return {
-    id: combat.id,
-    sessionId: combat.sessionId,
-    enemyName: combat.enemyName,
-    enemyStats: combat.enemyStats,
-    enemyState: combat.enemyState,
-    metadata: combat.metadata,
-    outcome: combat.outcome,
-    startedAt:
-      combat.startedAt instanceof Date
-        ? combat.startedAt.toISOString()
-        : new Date((combat.startedAt as number) * 1000).toISOString(),
-    endedAt: combat.endedAt
-      ? combat.endedAt instanceof Date
-        ? combat.endedAt.toISOString()
-        : new Date((combat.endedAt as number) * 1000).toISOString()
-      : null,
-    ...(availableRoundOptions !== undefined ? { availableRoundOptions } : {}),
-    rounds: rounds.map((r) => ({
-      id: r.id,
-      roundNumber: r.roundNumber,
-      detail: r.detail,
-      damageDealt: r.damageDealt,
-      damageTaken: r.damageTaken,
-      createdAt:
-        r.createdAt instanceof Date
-          ? r.createdAt.toISOString()
-          : new Date((r.createdAt as number) * 1000).toISOString(),
-    })),
-  }
-}
 
 export async function GET(
   _request: NextRequest,

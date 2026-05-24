@@ -1,6 +1,6 @@
 import type { GameSystem, CombatModule, CombatState, RoundOption, CombatOutcome, ConsumableDefinition } from './types'
 import { gameSystemRegistry } from './registry'
-import { rollDice } from '../dice'
+import { rollDice, parseDiceFormula } from '../dice'
 
 export const XP_PER_LP = 20
 
@@ -153,8 +153,8 @@ export const grailQuestCombat: CombatModule = {
     } else {
       // Auto-roll initiative — 2d6 each, re-roll on ties
       do {
-        playerRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
-        enemyRoll = rollDice(2, 6).reduce((a, b) => a + b, 0)
+        playerRoll = rollDice(2, 6).attempts[0]!.total
+        enemyRoll = rollDice(2, 6).attempts[0]!.total
       } while (playerRoll === enemyRoll)
       initiativeWinner = playerRoll > enemyRoll ? 'player' : 'enemy'
       const winnerLabel = initiativeWinner === 'player' ? 'You have' : 'Enemy has'
@@ -264,13 +264,15 @@ export const grailQuestCombat: CombatModule = {
       metadataRecord?.initiativeWinner === 'enemy' ? 'enemy' : 'player'
 
     // --- Phase 1: initiative winner attacks ---
-    const playerDice = rollDice(2, 6)
-    const playerRoll = playerDice.reduce((s, r) => s + r, 0)
+    const playerRollResult = rollDice(2, 6)
+    const playerDice = playerRollResult.attempts[0]!.dice
+    const playerRoll = playerRollResult.attempts[0]!.total
     const basePlayerThreshold = playerThresholdOverride ?? metadataPlayerThreshold
     const playerThreshold = riskyAttack ? basePlayerThreshold + 2 : basePlayerThreshold
 
-    const enemyDice = rollDice(2, 6)
-    const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
+    const enemyRollResult = rollDice(2, 6)
+    const enemyDice = enemyRollResult.attempts[0]!.dice
+    const enemyRoll = enemyRollResult.attempts[0]!.total
     const enemyThreshold = enemyThresholdFromStats
 
     // Compute raw damage for each side (used in phase logic)
@@ -500,12 +502,10 @@ export const grailQuest: GameSystem = {
 
     if (i.healDice) {
       // Parse dice spec, e.g. "2d6"
-      const match = i.healDice.match(/^(\d+)d(\d+)$/)
-      if (match) {
-        const count = parseInt(match[1], 10)
-        const sides = parseInt(match[2], 10)
-        const rolls = rollDice(count, sides)
-        healRoll = rolls.reduce((a, b) => a + b, 0)
+      const parsed = parseDiceFormula(i.healDice)
+      if (parsed) {
+        const { attempts } = rollDice(parsed.count, parsed.sides)
+        healRoll = attempts[0].dice.reduce((a, b) => a + b, 0)
       }
     } else if (typeof i.healAmount === 'number') {
       healRoll = i.healAmount

@@ -75,12 +75,14 @@ export const fightingFantasyCombat: CombatModule = {
     const currentEnemyStamina = typeof enemyState.stamina === 'number' ? enemyState.stamina : 0
 
     // Roll 2d6 + SKILL = Attack Strength
-    const playerDice = rollDice(2, 6)
-    const playerRoll = playerDice.reduce((s, r) => s + r, 0)
+    const playerRollResult = rollDice(2, 6)
+    const playerDice = playerRollResult.attempts[0]!.dice
+    const playerRoll = playerRollResult.attempts[0]!.total
     const playerAS = playerRoll + playerSkill
 
-    const enemyDice = rollDice(2, 6)
-    const enemyRoll = enemyDice.reduce((s, r) => s + r, 0)
+    const enemyRollResult = rollDice(2, 6)
+    const enemyDice = enemyRollResult.attempts[0]!.dice
+    const enemyRoll = enemyRollResult.attempts[0]!.total
     const enemyAS = enemyRoll + enemySkill
 
     let damageDealt = 0
@@ -243,8 +245,8 @@ export const fightingFantasy: GameSystem = {
       throw new Error('Cannot test luck: current Luck is 0')
     }
 
-    const dice = rollDice(2, 6)
-    const roll = dice.reduce((a, b) => a + b, 0)
+    const diceResult = rollDice(2, 6)
+    const roll = diceResult.attempts[0]!.total
     const success = roll <= currentLuck
     const newLuck = currentLuck - 1
 
