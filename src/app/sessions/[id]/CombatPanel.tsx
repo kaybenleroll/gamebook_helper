@@ -28,6 +28,16 @@ interface CombatData {
   rounds: CombatRound[]
 }
 
+// ---- Luck result type ----
+
+interface LuckResult {
+  type: 'attack' | 'defence'
+  roll: number
+  success: boolean
+  delta: number
+  message: string
+}
+
 interface Props {
   sessionId: number
   initialCombat: CombatData | null
@@ -39,6 +49,7 @@ interface Props {
   primaryHealthStat: string
   primaryEnemyHealthStat: string
   onCombatEnd?: () => void
+  hasTestLuck?: boolean
 }
 
 interface EnemyFormState {
@@ -108,6 +119,28 @@ function RollBreakdown({ detail }: { detail: Record<string, unknown> }) {
   )
 }
 
+function LuckResultsBreakdown({ luckResults }: { luckResults: unknown }) {
+  if (!Array.isArray(luckResults) || luckResults.length === 0) return null
+  return (
+    <div className="mt-1 text-xs text-amber-700 flex flex-col gap-0.5">
+      {(luckResults as Array<Record<string, unknown>>).map((r, i) => {
+        const type = typeof r['type'] === 'string' ? r['type'] : '?'
+        const roll = typeof r['roll'] === 'number' ? r['roll'] : '?'
+        const success = r['success'] === true
+        const delta = typeof r['delta'] === 'number' ? r['delta'] : 0
+        const label = type === 'attack' ? 'Attack' : 'Defence'
+        const outcome = success ? 'Lucky' : 'Unlucky'
+        const deltaStr = (delta as number) > 0 ? `+${delta}` : String(delta)
+        return (
+          <span key={i}>
+            Luck ({label}): rolled {roll} — {outcome} ({deltaStr} dmg {type === 'attack' ? 'dealt' : 'taken'})
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 function RoundLogEntry({ round }: { round: CombatRound }) {
   const detail = round.detail as Record<string, unknown>
   const narrative =
@@ -121,6 +154,7 @@ function RoundLogEntry({ round }: { round: CombatRound }) {
         <span className="text-gray-700">{narrative}</span>
       </div>
       <RollBreakdown detail={detail} />
+      <LuckResultsBreakdown luckResults={detail['luckResults']} />
     </div>
   )
 }
@@ -138,6 +172,7 @@ export default function CombatPanel({
   primaryHealthStat,
   primaryEnemyHealthStat,
   onCombatEnd,
+  hasTestLuck,
 }: Props) {
   const [combat, setCombat] = useState<CombatData | null>(initialCombat)
   const [enemyForm, setEnemyForm] = useState<EnemyFormState>(() => {
@@ -167,12 +202,25 @@ export default function CombatPanel({
   const [overrideDamageTaken, setOverrideDamageTaken] = useState('')
   const [isCommitting, setIsCommitting] = useState(false)
 
+  // Luck state — reset on each round commit
+  const [luckAttackUsed, setLuckAttackUsed] = useState(false)
+  const [luckDefenceUsed, setLuckDefenceUsed] = useState(false)
+  const [localLuckSpent, setLocalLuckSpent] = useState(0)
+  const [luckResults, setLuckResults] = useState<LuckResult[]>([])
+
   // XP modal state
   const [showXpModal, setShowXpModal] = useState(false)
   const [xpInput, setXpInput] = useState('')
   const [isSavingXp, setIsSavingXp] = useState(false)
 
   const [roundError, setRoundError] = useState<string | null>(null)
+
+  // Effective luck accounts for luck spent this round before onStatsChange propagates
+  const currentLuck =
+    typeof (characterStats as Record<string, unknown>)['luck'] === 'number'
+      ? ((characterStats as Record<string, unknown>)['luck'] as number)
+      : 0
+  const effectiveLuck = currentLuck - localLuckSpent
 
   // ---- Start fight ----
 
@@ -272,8 +320,12 @@ export default function CombatPanel({
         })
         setOverrideDamageDealt(String(data.round.damageDealt))
         setOverrideDamageTaken(String(data.round.damageTaken))
-        // Reset round options
+        // Reset round options and luck state for the new round
         setRoundOptions({})
+        setLuckAttackUsed(false)
+        setLuckDefenceUsed(false)
+        setLocalLuckSpent(0)
+        setLuckResults([])
         if (data.xpPrompt) {
           setShowXpModal(true)
         }
@@ -284,6 +336,62 @@ export default function CombatPanel({
     } finally {
       setIsResolving(false)
     }
+  }
+
+  // ---- Test luck ----
+
+  async function handleLuckTest(type: 'attack' | 'defence') {
+    if (!pendingResult) return
+
+    // Optimistically track luck spent before API response propagates
+    setLocalLuckSpent(prev => prev + 1)
+
+    const res = await fetch(`/api/sessions/${sessionId}/actions/test-luck`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    if (!res.ok) {
+      // Roll back optimistic decrement on error
+      setLocalLuckSpent(prev => prev - 1)
+      return
+    }
+
+    const data = (await res.json()) as {
+      roll: number
+      success: boolean
+      newLuck: number
+      message: string
+      stats: Record<string, unknown>
+      initialStats: Record<string, unknown>
+    }
+
+    // Compute damage delta
+    let delta = 0
+    if (type === 'attack') {
+      delta = data.success ? 2 : -1
+      const parsed = parseInt(overrideDamageDealt, 10)
+      const base = isNaN(parsed) ? (pendingResult.damageDealt) : parsed
+      setOverrideDamageDealt(String(Math.max(0, base + delta)))
+      setLuckAttackUsed(true)
+    } else {
+      delta = data.success ? -1 : 1
+      const parsed = parseInt(overrideDamageTaken, 10)
+      const base = isNaN(parsed) ? (pendingResult.damageTaken) : parsed
+      setOverrideDamageTaken(String(Math.max(0, base + delta)))
+      setLuckDefenceUsed(true)
+    }
+
+    const luckResult: LuckResult = {
+      type,
+      roll: data.roll,
+      success: data.success,
+      delta,
+      message: data.message,
+    }
+    setLuckResults(prev => [...prev, luckResult])
+
+    onStatsChange(data.stats, data.initialStats)
   }
 
   // ---- Commit overrides ----
@@ -301,28 +409,36 @@ export default function CombatPanel({
       (!isNaN(damageDealtOverride) && damageDealtOverride !== pendingResult.damageDealt) ||
       (!isNaN(damageTakenOverride) && damageTakenOverride !== pendingResult.damageTaken)
 
-    if (!hasOverride) {
+    const hasLuckResults = luckResults.length > 0
+
+    if (!hasOverride && !hasLuckResults) {
       setPendingResult(null)
+      setLuckAttackUsed(false)
+      setLuckDefenceUsed(false)
+      setLocalLuckSpent(0)
+      setLuckResults([])
       return
     }
 
     setIsCommitting(true)
     setRoundError(null)
     try {
+      const overridesPayload: { damageDealt?: number; damageTaken?: number } = {}
+      if (!isNaN(damageDealtOverride) && damageDealtOverride !== pendingResult.damageDealt) {
+        overridesPayload.damageDealt = damageDealtOverride
+      }
+      if (!isNaN(damageTakenOverride) && damageTakenOverride !== pendingResult.damageTaken) {
+        overridesPayload.damageTaken = damageTakenOverride
+      }
+
       const res = await fetch(`/api/sessions/${sessionId}/combats/${combat.id}/rounds`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chosenOptions: roundOptions,
           combatModifiers,
-          overrides: {
-            ...(damageDealtOverride !== pendingResult.damageDealt
-              ? { damageDealt: damageDealtOverride }
-              : {}),
-            ...(damageTakenOverride !== pendingResult.damageTaken
-              ? { damageTaken: damageTakenOverride }
-              : {}),
-          },
+          overrides: Object.keys(overridesPayload).length > 0 ? overridesPayload : undefined,
+          ...(luckResults.length > 0 ? { luckResults } : {}),
         }),
       })
       if (res.ok) {
@@ -346,6 +462,10 @@ export default function CombatPanel({
         })
         onStatsChange(data.characterStats, data.characterInitialStats)
         setPendingResult(null)
+        setLuckAttackUsed(false)
+        setLuckDefenceUsed(false)
+        setLocalLuckSpent(0)
+        setLuckResults([])
         if (data.xpPrompt) setShowXpModal(true)
       } else {
         const err = (await res.json()) as { error?: string }
@@ -716,6 +836,77 @@ export default function CombatPanel({
                   </div>
                 )}
               </div>
+
+              {/* Luck test buttons — Fighting Fantasy only */}
+              {hasTestLuck && (
+                <div className="mt-3 pt-3 border-t border-amber-200">
+                  <p className="text-xs font-medium text-amber-800 mb-2">
+                    Test Your Luck
+                    {effectiveLuck > 0 && (
+                      <span className="ml-1 text-amber-600">(Luck: {effectiveLuck})</span>
+                    )}
+                    {effectiveLuck <= 0 && (
+                      <span className="ml-1 text-gray-400">(Luck exhausted)</span>
+                    )}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {/* Attack luck button */}
+                    {pendingResult.damageDealt > 0 && !luckAttackUsed && effectiveLuck > 0 && (
+                      <button
+                        onClick={() => handleLuckTest('attack')}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-medium"
+                      >
+                        Test Luck (Attack) — Lucky: +2 dmg dealt · Unlucky: −1 dmg dealt
+                      </button>
+                    )}
+                    {luckAttackUsed && (
+                      <div className="text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1.5">
+                        {luckResults.find(r => r.type === 'attack') && (() => {
+                          const r = luckResults.find(lr => lr.type === 'attack')!
+                          return (
+                            <>
+                              <span className="font-semibold">Attack luck:</span>{' '}
+                              rolled {r.roll} —{' '}
+                              <span className={r.success ? 'text-green-700' : 'text-red-700'}>
+                                {r.success ? 'Lucky!' : 'Unlucky!'}
+                              </span>{' '}
+                              ({r.delta > 0 ? '+' : ''}{r.delta} dmg dealt)
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Defence luck button */}
+                    {!pendingResult.phaseTwoSkipped && pendingResult.damageTaken > 0 && !luckDefenceUsed && effectiveLuck > 0 && (
+                      <button
+                        onClick={() => handleLuckTest('defence')}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-medium"
+                      >
+                        Test Luck (Defence) — Lucky: −1 dmg taken · Unlucky: +1 dmg taken
+                      </button>
+                    )}
+                    {luckDefenceUsed && (
+                      <div className="text-xs text-amber-800 bg-amber-100 border border-amber-300 rounded px-2 py-1.5">
+                        {luckResults.find(r => r.type === 'defence') && (() => {
+                          const r = luckResults.find(lr => lr.type === 'defence')!
+                          return (
+                            <>
+                              <span className="font-semibold">Defence luck:</span>{' '}
+                              rolled {r.roll} —{' '}
+                              <span className={r.success ? 'text-green-700' : 'text-red-700'}>
+                                {r.success ? 'Lucky!' : 'Unlucky!'}
+                              </span>{' '}
+                              ({r.delta > 0 ? '+' : ''}{r.delta} dmg taken)
+                            </>
+                          )
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {roundError && <p className="text-red-600 text-sm mt-2">{roundError}</p>}
               <button
                 onClick={commitOverrides}

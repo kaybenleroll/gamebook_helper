@@ -230,6 +230,7 @@ export default async function SessionPage({
             enemyStatFields={gameSystem.combat?.enemyStatFields ?? null}
             primaryHealthStat={gameSystem.primaryHealthStat}
             primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
+            hasTestLuck={typeof gameSystem.testLuck === 'function'}
             creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
             defaultDice={gameSystem.defaultDice}
             initialItems={inventoryForClient}

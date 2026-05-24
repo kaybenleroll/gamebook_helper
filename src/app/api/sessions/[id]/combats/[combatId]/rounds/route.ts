@@ -68,17 +68,26 @@ export async function POST(
       chosenOptions?: Record<string, unknown>
       combatModifiers?: Record<string, unknown>
       overrides?: { damageDealt?: number; damageTaken?: number }
+      luckResults?: Array<{
+        type: 'attack' | 'defence'
+        roll: number
+        success: boolean
+        delta: number
+        message: string
+      }>
     }
 
     const chosenOptions = body.chosenOptions ?? {}
     const combatModifiers = body.combatModifiers ?? {}
     const overrides = body.overrides
+    const bodyLuckResults = body.luckResults
 
     const characterStats = character.stats as Record<string, unknown>
 
     const isCommitOverride =
-      overrides !== undefined &&
-      (typeof overrides.damageDealt === 'number' || typeof overrides.damageTaken === 'number')
+      (overrides !== undefined &&
+        (typeof overrides.damageDealt === 'number' || typeof overrides.damageTaken === 'number')) ||
+      (bodyLuckResults !== undefined && bodyLuckResults.length > 0)
 
     // 422 guard: damageTaken override is invalid on a phaseTwoSkipped round
     if (isCommitOverride && typeof overrides!.damageTaken === 'number') {
@@ -110,7 +119,7 @@ export async function POST(
     if (isCommitOverride) {
       // Commit path: apply override damage values directly to existing combat state.
       // Do NOT re-call resolveRound — this avoids re-rolling dice.
-      const safeOverrides = overrides!
+      const safeOverrides = overrides ?? {}
       const originalEnemyState = combat.enemyState as Record<string, unknown>
 
       // Use system-agnostic field names to locate enemy and player HP.
@@ -157,7 +166,10 @@ export async function POST(
         finalOutcome = null
       }
 
-      roundDetail = { overrides: safeOverrides }
+      roundDetail = {
+        ...(Object.keys(safeOverrides).length > 0 ? { overrides: safeOverrides } : {}),
+        ...(bodyLuckResults && bodyLuckResults.length > 0 ? { luckResults: bodyLuckResults } : {}),
+      }
     } else {
       // Normal path: resolve round via game system — all combat maths live in the game-system module
       const result = gameSystem.combat.resolveRound({
@@ -174,7 +186,11 @@ export async function POST(
       finalEnemyState = result.enemyState as Record<string, unknown>
       finalCharacterDeltas = { ...result.characterDeltas }
       finalOutcome = result.outcome as CombatOutcomeValue | null
-      roundDetail = result.detail as Record<string, unknown>
+      const baseDetail = result.detail as Record<string, unknown>
+      roundDetail = {
+        ...baseDetail,
+        ...(bodyLuckResults && bodyLuckResults.length > 0 ? { luckResults: bodyLuckResults } : {}),
+      }
     }
 
     // Pre-compute updated character stats (needed inside transaction and for response)
