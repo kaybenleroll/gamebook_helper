@@ -140,8 +140,14 @@ export default function CombatPanel({
   onCombatEnd,
 }: Props) {
   const [combat, setCombat] = useState<CombatData | null>(initialCombat)
-  const [showStartForm, setShowStartForm] = useState(false)
-  const [enemyForm, setEnemyForm] = useState<EnemyFormState>({})
+  const [enemyForm, setEnemyForm] = useState<EnemyFormState>(() => {
+    const initial: EnemyFormState = {}
+    const weaponValue = (characterStats.weapon as { value?: number } | undefined)?.value
+    const armourValue = (characterStats.armour as { value?: number } | undefined)?.value
+    if (weaponValue !== undefined) initial['playerDamageBonus'] = String(weaponValue)
+    if (armourValue !== undefined) initial['playerArmourReduction'] = String(armourValue)
+    return initial
+  })
   const [startError, setStartError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
 
@@ -168,23 +174,6 @@ export default function CombatPanel({
 
   const [roundError, setRoundError] = useState<string | null>(null)
 
-  // ---- Open start form with equipment-derived defaults ----
-
-  function openStartForm() {
-    const weaponValue = (characterStats.weapon as { value?: number } | undefined)?.value
-    const armourValue = (characterStats.armour as { value?: number } | undefined)?.value
-    const initial: EnemyFormState = {}
-    if (weaponValue !== undefined) {
-      initial['playerDamageBonus'] = String(weaponValue)
-    }
-    if (armourValue !== undefined) {
-      initial['playerArmourReduction'] = String(armourValue)
-    }
-    setEnemyForm(initial)
-    setStartError(null)
-    setShowStartForm(true)
-  }
-
   // ---- Start fight ----
 
   async function startFight() {
@@ -193,6 +182,9 @@ export default function CombatPanel({
     try {
       // Convert form values to correct types
       const payload: Record<string, unknown> = {}
+      // Include enemy name (sent as 'name' per API convention)
+      const enemyNameValue = (enemyForm['enemyName'] ?? '').trim()
+      if (enemyNameValue) payload['name'] = enemyNameValue
       for (const field of enemyStatFields) {
         const raw =
           enemyForm[field.key] !== undefined
@@ -218,8 +210,12 @@ export default function CombatPanel({
       if (res.ok) {
         const data = (await res.json()) as CombatData
         setCombat(data)
-        setShowStartForm(false)
-        setEnemyForm({})
+        const resetForm: EnemyFormState = {}
+        const weaponValue = (characterStats.weapon as { value?: number } | undefined)?.value
+        const armourValue = (characterStats.armour as { value?: number } | undefined)?.value
+        if (weaponValue !== undefined) resetForm['playerDamageBonus'] = String(weaponValue)
+        if (armourValue !== undefined) resetForm['playerArmourReduction'] = String(armourValue)
+        setEnemyForm(resetForm)
         setRoundOptions({})
         setCombatModifiers({})
         setPendingResult(null)
@@ -479,87 +475,82 @@ export default function CombatPanel({
         </div>
       )}
 
-      {/* No active combat — start form or button */}
+      {/* No active combat — start form */}
       {!combat && !isGameOver && (
-        <>
-          {!showStartForm ? (
-            <button
-              onClick={openStartForm}
-              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Start fight
-            </button>
-          ) : (
-            <div className="border rounded p-4 max-w-md">
-              <h3 className="font-semibold mb-3">New fight</h3>
-              {enemyStatFields.map((field) => (
-                <div key={field.key} className="flex items-center gap-2 mb-2">
-                  <label className="w-28 text-sm shrink-0">
-                    {field.label}
-                    {'required' in field && field.required && <span className="text-red-500">*</span>}
-                  </label>
-                  {field.type === 'radio' ? (
-                    <div className="flex gap-3 flex-wrap" role="radiogroup" aria-label={field.label}>
-                      {field.options.map((opt) => {
-                        const currentVal =
-                          enemyForm[field.key] !== undefined
-                            ? enemyForm[field.key]
-                            : field.default ?? ''
-                        return (
-                          <label key={opt.value} className="flex items-center gap-1 text-sm cursor-pointer">
-                            <input
-                              type="radio"
-                              name={field.key}
-                              value={opt.value}
-                              checked={currentVal === opt.value}
-                              onChange={() =>
-                                setEnemyForm((prev) => ({ ...prev, [field.key]: opt.value }))
-                              }
-                            />
-                            {opt.label}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <input
-                      type={field.type === 'number' ? 'number' : 'text'}
-                      value={
-                        enemyForm[field.key] !== undefined
-                          ? enemyForm[field.key]
-                          : field.default !== undefined
-                            ? String(field.default)
-                            : ''
-                      }
-                      min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus' || field.key === 'playerArmourReduction') ? 0 : undefined}
-                      onChange={(e) =>
-                        setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
-                      }
-                      className="border rounded px-2 py-1 text-sm flex-1"
-                      aria-label={field.label}
-                    />
-                  )}
+        <div className="border rounded p-4 max-w-md">
+          <h3 className="font-semibold mb-3">New fight</h3>
+          <div className="flex items-center gap-2 mb-2">
+            <label className="w-28 text-sm shrink-0">
+              Enemy name<span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              className="border rounded px-2 py-1 text-sm flex-1"
+              value={enemyForm['enemyName'] ?? ''}
+              onChange={e => setEnemyForm(prev => ({ ...prev, enemyName: e.target.value }))}
+            />
+          </div>
+          {enemyStatFields.map((field) => (
+            <div key={field.key} className="flex items-center gap-2 mb-2">
+              <label className="w-28 text-sm shrink-0">
+                {field.label}
+                {'required' in field && field.required && <span className="text-red-500">*</span>}
+              </label>
+              {field.type === 'radio' ? (
+                <div className="flex gap-3 flex-wrap" role="radiogroup" aria-label={field.label}>
+                  {field.options.map((opt) => {
+                    const currentVal =
+                      enemyForm[field.key] !== undefined
+                        ? enemyForm[field.key]
+                        : field.default ?? ''
+                    return (
+                      <label key={opt.value} className="flex items-center gap-1 text-sm cursor-pointer">
+                        <input
+                          type="radio"
+                          name={field.key}
+                          value={opt.value}
+                          checked={currentVal === opt.value}
+                          onChange={() =>
+                            setEnemyForm((prev) => ({ ...prev, [field.key]: opt.value }))
+                          }
+                        />
+                        {opt.label}
+                      </label>
+                    )
+                  })}
                 </div>
-              ))}
-              {startError && <p className="text-red-600 text-sm mb-2">{startError}</p>}
-              <div className="flex gap-2 mt-3">
-                <button
-                  onClick={startFight}
-                  disabled={isStarting}
-                  className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-40"
-                >
-                  {isStarting ? 'Starting…' : 'Start'}
-                </button>
-                <button
-                  onClick={() => { setShowStartForm(false); setStartError(null); setEnemyForm({}) }}
-                  className="px-4 py-2 border rounded"
-                >
-                  Cancel
-                </button>
-              </div>
+              ) : (
+                <input
+                  type={field.type === 'number' ? 'number' : 'text'}
+                  value={
+                    enemyForm[field.key] !== undefined
+                      ? enemyForm[field.key]
+                      : field.default !== undefined
+                        ? String(field.default)
+                        : ''
+                  }
+                  min={field.type === 'number' && (field.key === 'enemyDamageBonus' || field.key === 'playerDamageBonus' || field.key === 'playerArmourReduction') ? 0 : undefined}
+                  onChange={(e) =>
+                    setEnemyForm((prev) => ({ ...prev, [field.key]: e.target.value }))
+                  }
+                  className="border rounded px-2 py-1 text-sm flex-1"
+                  aria-label={field.label}
+                />
+              )}
             </div>
-          )}
-        </>
+          ))}
+          {startError && <p className="text-red-600 text-sm mb-2">{startError}</p>}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={startFight}
+              disabled={isStarting || !(enemyForm['enemyName'] ?? '').trim()}
+              className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-40"
+            >
+              {isStarting ? 'Starting…' : 'Start fight'}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Active combat */}
@@ -802,7 +793,7 @@ export default function CombatPanel({
 
           {!isGameOver && (
             <button
-              onClick={() => { setCombat(null); setShowStartForm(false) }}
+              onClick={() => { setCombat(null); setStartError(null) }}
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
             >
               Start new fight
