@@ -134,4 +134,23 @@ export interface GameSystem {
    * Systems that need no default metadata may omit this (defaults to {}).
    */
   initialMetadata?(): import('../db/schema').SessionMetadata
+
+  /**
+   * Called after a stat is changed. Returns additional stat deltas to apply
+   * (e.g. GQ XP threshold recalculation, LP-XP bonus resync).
+   * Systems without post-stat-change side effects may omit this.
+   */
+  onStatChanged?(
+    stat: string,
+    newCurrentStats: Record<string, unknown>,
+    newInitialStats: Record<string, unknown>,
+  ): { currentDeltas?: Record<string, number>; initialDeltas?: Record<string, number> }
+
+  /**
+   * The stat key used for experience points, if this system tracks XP.
+   * Used by combat routes to award XP and trigger the XP modal without
+   * referencing system-specific string literals.
+   * Systems without XP tracking leave this undefined.
+   */
+  experienceStatKey?: string
 }

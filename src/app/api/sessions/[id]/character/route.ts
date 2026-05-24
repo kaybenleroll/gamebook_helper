@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import '../../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
-import { applyXpThreshold, xpToLpBonuses } from '../../../../../lib/game-systems/grail-quest'
 import { db } from '../../../../../lib/db'
 import { sessions, characters } from '../../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
@@ -133,11 +132,13 @@ export async function PATCH(
       const newValue = Math.max(statDef.min, Math.min(statDef.max ?? Infinity, rawValue))
       newStats = { ...newStats, [stat]: newValue }
 
-      // Apply XP threshold logic for Grail Quest
-      if (session.gameSystemId === 'grail-quest' && stat === 'experiencePoints') {
-        const result = applyXpThreshold(newStats, newInitialStats)
-        newStats = result.stats
-        newInitialStats = result.initialStats
+      // Invoke system hook for any post-stat-change side effects (e.g. GQ XP threshold)
+      const hookResult = gameSystem.onStatChanged?.(stat, newStats, newInitialStats)
+      if (hookResult?.initialDeltas) {
+        for (const [key, delta] of Object.entries(hookResult.initialDeltas)) {
+          const current = typeof newInitialStats[key] === 'number' ? (newInitialStats[key] as number) : 0
+          newInitialStats = { ...newInitialStats, [key]: current + delta }
+        }
       }
     } else {
       // target === 'initial'
@@ -149,13 +150,13 @@ export async function PATCH(
       const newInitialValue = Math.max(statDef.min, Math.min(statDef.max ?? Infinity, rawValue))
       newInitialStats = { ...newInitialStats, [stat]: newInitialValue }
 
-      // Resync lifePointsXpBonuses when lifePoints initial is manually changed
-      if (session.gameSystemId === 'grail-quest' && stat === 'lifePoints') {
-        const currentXp =
-          typeof currentStats.experiencePoints === 'number'
-            ? (currentStats.experiencePoints as number)
-            : 0
-        newInitialStats = { ...newInitialStats, lifePointsXpBonuses: xpToLpBonuses(currentXp) }
+      // Invoke system hook for any post-stat-change side effects (e.g. GQ LP-XP resync)
+      const hookResult = gameSystem.onStatChanged?.(stat, newStats, newInitialStats)
+      if (hookResult?.initialDeltas) {
+        for (const [key, delta] of Object.entries(hookResult.initialDeltas)) {
+          const current = typeof newInitialStats[key] === 'number' ? (newInitialStats[key] as number) : 0
+          newInitialStats = { ...newInitialStats, [key]: current + delta }
+        }
       }
 
       // Clamp current stat down if it exceeds the new initialStats value
