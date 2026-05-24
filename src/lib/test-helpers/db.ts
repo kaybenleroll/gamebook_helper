@@ -57,7 +57,7 @@ export function createTestDb(): TestDb {
       initial_stats TEXT NOT NULL,
       creation_rolls TEXT DEFAULT 'null',
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS characters_session_id_idx ON characters(session_id);
@@ -117,7 +117,7 @@ export function createTestDb(): TestDb {
       outcome TEXT NOT NULL DEFAULT 'in_progress',
       started_at INTEGER NOT NULL DEFAULT (unixepoch()),
       ended_at INTEGER,
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS combats_session_id_idx ON combats(session_id);
@@ -133,7 +133,7 @@ export function createTestDb(): TestDb {
       damage_dealt INTEGER NOT NULL,
       damage_taken INTEGER NOT NULL,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (combat_id) REFERENCES combats(id)
+      FOREIGN KEY (combat_id) REFERENCES combats(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS combat_rounds_combat_id_idx ON combat_rounds(combat_id);
@@ -143,7 +143,7 @@ export function createTestDb(): TestDb {
       session_id INTEGER NOT NULL,
       section_number INTEGER NOT NULL,
       visited_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS section_visits_session_id_idx ON section_visits(session_id);
@@ -159,7 +159,7 @@ export function createTestDb(): TestDb {
       heal_amount INTEGER,
       heal_dice TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS inventory_items_session_id_idx ON inventory_items(session_id);
@@ -169,7 +169,7 @@ export function createTestDb(): TestDb {
       session_id INTEGER NOT NULL,
       spell_id TEXT NOT NULL,
       uses_remaining INTEGER NOT NULL,
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS session_spells_session_id_idx ON session_spells(session_id);

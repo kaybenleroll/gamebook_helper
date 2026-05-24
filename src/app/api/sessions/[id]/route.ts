@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import '../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../lib/game-systems/registry'
 import { db } from '../../../../lib/db'
-import { sessions, characters, maps, combats, combatRounds, sectionVisits, inventoryItems, sessionSpells } from '../../../../lib/db/schema'
+import { sessions, characters } from '../../../../lib/db/schema'
 import type { SessionMetadata } from '../../../../lib/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import logger from '../../../../lib/logger'
 
 export async function GET(
@@ -150,24 +150,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    db.transaction((tx) => {
-      const sessionCombats = tx.select({ id: combats.id }).from(combats).where(eq(combats.sessionId, sessionId)).all()
-
-      const combatIds = sessionCombats.map((c) => c.id)
-
-      if (combatIds.length > 0) {
-        tx.delete(combatRounds).where(inArray(combatRounds.combatId, combatIds)).run()
-      }
-
-      tx.delete(sectionVisits).where(eq(sectionVisits.sessionId, sessionId)).run()
-      tx.delete(combats).where(eq(combats.sessionId, sessionId)).run()
-      tx.delete(inventoryItems).where(eq(inventoryItems.sessionId, sessionId)).run()
-      tx.delete(sessionSpells).where(eq(sessionSpells.sessionId, sessionId)).run()
-      // maps/map_nodes/map_edges are cascade-deleted via FK on session_id
-      tx.delete(maps).where(eq(maps.sessionId, sessionId)).run()
-      tx.delete(characters).where(eq(characters.sessionId, sessionId)).run()
-      tx.delete(sessions).where(eq(sessions.id, sessionId)).run()
-    })
+    // All child tables (characters, maps, combats, combat_rounds, section_visits,
+    // inventory_items, session_spells) carry ON DELETE CASCADE FKs — a single
+    // delete on the parent cascades to all of them automatically.
+    db.delete(sessions).where(eq(sessions.id, sessionId)).run()
 
     return new NextResponse(null, { status: 204 })
   } catch (err) {
