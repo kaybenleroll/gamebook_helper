@@ -84,8 +84,9 @@ export interface SpellDefinition {
 }
 
 export interface ConsumableDefinition {
+  id?: string
   name: string
-  itemType: 'potion' | 'salve'
+  itemType: 'potion' | 'salve' | 'provision'
   initialCount: number
   doseCount: number
   healAmount?: number

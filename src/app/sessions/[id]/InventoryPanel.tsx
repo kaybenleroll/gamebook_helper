@@ -140,6 +140,24 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
   async function useConsumable(item: InventoryItem) {
     if (item.doseCount === null || item.doseCount <= 0) return
 
+    if (item.itemType === 'provision') {
+      // Eat meal: applies stat healing and decrements doseCount via the eat-meal action route
+      const res = await fetch(`/api/sessions/${sessionId}/actions/eat-meal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: item.id }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as { item: InventoryItem | null }
+        if (data.item === null) {
+          setItems((prev) => prev.filter((i) => i.id !== item.id))
+        } else {
+          setItems((prev) => prev.map((i) => (i.id === item.id ? data.item! : i)))
+        }
+      }
+      return
+    }
+
     const newDoseCount = item.doseCount - 1
 
     const res = await fetch(`/api/sessions/${sessionId}/inventory/${item.id}`, {
@@ -171,10 +189,14 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
   }
 
   function isConsumable(item: InventoryItem) {
-    return item.itemType === 'potion' || item.itemType === 'salve'
+    return item.itemType === 'potion' || item.itemType === 'salve' || item.itemType === 'provision'
   }
 
   function healDescription(item: InventoryItem) {
+    if (item.itemType === 'provision') {
+      if (item.healAmount !== null) return `${item.healAmount} STAMINA`
+      return '4 STAMINA'
+    }
     if (item.healDice) return item.healDice
     if (item.healAmount !== null) return `${item.healAmount} LP`
     return ''
@@ -299,9 +321,9 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
                           onClick={(e) => { e.stopPropagation(); void useConsumable(item) }}
                           disabled={!item.doseCount || item.doseCount <= 0}
                           className="px-2 py-0.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-40"
-                          aria-label={`Use one dose of ${item.name}`}
+                          aria-label={item.itemType === 'provision' ? `Eat one ${item.name}` : `Use one dose of ${item.name}`}
                         >
-                          Use
+                          {item.itemType === 'provision' ? 'Eat' : 'Use'}
                         </button>
                       </div>
                     ) : (
