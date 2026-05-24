@@ -122,10 +122,28 @@ export async function PATCH(
 
     const body = (await request.json()) as { outcome?: unknown; endedAt?: unknown }
 
-    const validOutcomes: CombatOutcomeValue[] = ['player_fled', 'player_won', 'player_lost']
-    if (!body.outcome || !validOutcomes.includes(body.outcome as CombatOutcomeValue)) {
+    // Combat outcome is server-authoritative: player_won and player_lost must only be
+    // set by the round-resolution path (POST .../rounds).
+    //
+    // player_fled is the one exception — it is a deliberate player choice that does not
+    // arise from round resolution, so the client may request it here via PATCH.
+    const serverOnlyOutcomes: CombatOutcomeValue[] = ['player_won', 'player_lost']
+    if (
+      body.outcome !== undefined &&
+      serverOnlyOutcomes.includes(body.outcome as CombatOutcomeValue)
+    ) {
       return NextResponse.json(
-        { error: 'outcome must be one of: player_fled, player_won, player_lost' },
+        {
+          error:
+            'Combat outcome cannot be set directly. Use the round resolution path.',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (body.outcome !== 'player_fled') {
+      return NextResponse.json(
+        { error: 'outcome must be player_fled' },
         { status: 400 },
       )
     }
@@ -134,7 +152,7 @@ export async function PATCH(
       typeof body.endedAt === 'string' ? new Date(body.endedAt) : new Date()
 
     db.update(combats)
-      .set({ outcome: body.outcome as CombatOutcomeValue, endedAt })
+      .set({ outcome: 'player_fled' as CombatOutcomeValue, endedAt })
       .where(eq(combats.id, combatIdInt))
       .run()
 
@@ -146,7 +164,7 @@ export async function PATCH(
       .orderBy(asc(combatRounds.roundNumber))
       .all()
 
-    logger.info({ sessionId, combatId: combatIdInt, outcome: body.outcome }, 'combat resolved')
+    logger.info({ sessionId, combatId: combatIdInt, outcome: 'player_fled' }, 'combat resolved')
     return NextResponse.json(formatCombat(updated, rounds))
   } catch (err) {
     logger.error({ err }, '[PATCH /api/sessions/[id]/combats/[combatId]] error')
