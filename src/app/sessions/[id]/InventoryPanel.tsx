@@ -29,9 +29,10 @@ interface Props {
   sessionId: number
   gameSystemId: string
   initialItems: InventoryItem[]
+  onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
 }
 
-export default function InventoryPanel({ sessionId, gameSystemId, initialItems }: Props) {
+export default function InventoryPanel({ sessionId, gameSystemId, initialItems, onStatsChange }: Props) {
   const [items, setItems] = useState<InventoryItem[]>(initialItems)
   const [nameInput, setNameInput] = useState('')
 
@@ -148,12 +149,17 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems }
         body: JSON.stringify({ itemId: item.id }),
       })
       if (res.ok) {
-        const data = (await res.json()) as { item: InventoryItem | null }
+        const data = (await res.json()) as {
+          item: InventoryItem | null
+          stats: Record<string, unknown>
+          initialStats: Record<string, unknown>
+        }
         if (data.item === null) {
           setItems((prev) => prev.filter((i) => i.id !== item.id))
         } else {
           setItems((prev) => prev.map((i) => (i.id === item.id ? data.item! : i)))
         }
+        onStatsChange?.(data.stats, data.initialStats)
       }
       return
     }

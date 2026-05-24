@@ -115,6 +115,7 @@ export default function TabbedStatsPanel({
             sessionId={sessionId}
             gameSystemId={gameSystemId}
             initialItems={initialItems}
+            onStatsChange={onStatsChange}
           />
         )}
         {activeTab === 'spells' && hasSpells && (
