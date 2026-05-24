@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Mandatory Workflow — Before Any Implementation
 
 1. Create GitHub Issue with labels: Priority, Type, Area, Effort
@@ -43,7 +41,7 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
 - **UK English** throughout (analyse, colour, behaviour)
 - `rm` is aliased to interactive — use `command rm -f` in scripts
 - `eslint.config.mjs` is baked into the image (not bind-mounted) — after editing locally run: `podman cp eslint.config.mjs gamebook-app:/app/`
-- Install npm packages inside the container: `podman exec gamebook-app npm install <pkg>`. When removing, edit `package.json` directly — `npm uninstall` only removes from the container's `node_modules`, not the mounted source file.
+- Install packages: `podman exec gamebook-app npm install <pkg>`; to remove, edit `package.json` directly — `npm uninstall` only strips the container's `node_modules`
 - Backwards compatibility is never a blocker — break it when architecture or design is better
 - `.scratch/` is gitignored — stage experimental files there until patterns stabilise, then promote; never commit from it
 - Tailwind `@theme` silently drops CSS custom properties using `var()` — use raw values inside `@theme` blocks
@@ -55,12 +53,12 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
 
 - Always `just test` before committing
 - Subagents have no parent context — always include `cwd: /home/mcooney/workspace/gamebook_helper` and `owner: kaybenleroll, repo: gamebook_helper` in every subagent prompt
-- **PR lifecycle**: commit freely and atomically on the feature branch; do NOT push or open a PR until the implementation is fully validated (tsc passes + feature verified end-to-end). Each squash-merge advances main and causes conflicts on open branches. Post-merge fixes go on a fresh branch.
+- **PR lifecycle**: commit freely on the feature branch; don't push/open PR until tsc passes + verified end-to-end; post-merge fixes go on a fresh branch
 - Delegate ALL non-trivial work to subagents — research, exploration, implementation, test runs. Main thread orchestrates only.
   - File reads for reference/research → Explore subagent
   - Any grep/find/rg/fd/search → Explore subagent
   - Bash commands expected to return >20 lines → subagent, return only relevant output
-- **`/verify` is a subagent dispatch, not a main-thread execution.** After invoking `/verify`, immediately spawn a general-purpose subagent to run ALL verification steps: test commands, Playwright scripts, screenshots, debug iterations, API probes. The main thread reads the subagent's report and relays findings — it never runs the commands itself. This rule has no exceptions.
+- **`/verify` dispatches a subagent** — spawn one immediately for all steps (tests, Playwright, screenshots, API probes); main thread reads report only; no exceptions
 - Use the `git-workflow` skill before any GitHub operation (issue creation, branching, PRs, merges)
-- For new feature development, use `/new-feature` — it sequences grill-me, write-a-prd, stress-test, prd-to-issues, and git-workflow with the correct models at each step
+- Use `/new-feature` for new features — sequences grill-me → write-a-prd → stress-test → prd-to-issues → git-workflow
 - Skip `/brainstorming` — design refinement in this project happens through direct dialogue on proposed changes
