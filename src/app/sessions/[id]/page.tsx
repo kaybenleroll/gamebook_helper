@@ -111,37 +111,12 @@ export default async function SessionPage({
     }
   }
 
-  let rawInventory = db
+  const rawInventory = db
     .select()
     .from(inventoryItems)
     .where(eq(inventoryItems.sessionId, sessionId))
     .orderBy(asc(inventoryItems.createdAt))
     .all()
-
-  if (rawInventory.length === 0 && gameSystem.consumables && gameSystem.consumables.length > 0) {
-    for (const consumable of gameSystem.consumables) {
-      for (let i = 0; i < consumable.initialCount; i++) {
-        db.insert(inventoryItems)
-          .values({
-            sessionId,
-            name: consumable.name,
-            quantity: 1,
-            isSpecial: false,
-            itemType: consumable.itemType,
-            doseCount: consumable.doseCount,
-            healAmount: consumable.healAmount ?? null,
-            healDice: consumable.healDice ?? null,
-          })
-          .run()
-      }
-    }
-    rawInventory = db
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.sessionId, sessionId))
-      .orderBy(asc(inventoryItems.createdAt))
-      .all()
-  }
 
   const inventoryForClient = rawInventory.map((item) => ({
     id: item.id,
@@ -161,24 +136,11 @@ export default async function SessionPage({
 
   const spellDefs = gameSystem.spells ?? []
 
-  let spellStateRows = db
+  const spellStateRows = db
     .select()
     .from(sessionSpells)
     .where(eq(sessionSpells.sessionId, sessionId))
     .all()
-
-  if (spellStateRows.length === 0 && spellDefs.length > 0) {
-    for (const spell of spellDefs) {
-      db.insert(sessionSpells)
-        .values({ sessionId, spellId: spell.id, usesRemaining: spell.maxUses })
-        .run()
-    }
-    spellStateRows = db
-      .select()
-      .from(sessionSpells)
-      .where(eq(sessionSpells.sessionId, sessionId))
-      .all()
-  }
 
   const spellStateForClient = spellStateRows.map((r) => ({
     spellId: r.spellId,

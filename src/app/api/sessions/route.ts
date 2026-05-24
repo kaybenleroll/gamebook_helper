@@ -3,7 +3,7 @@ import { desc } from 'drizzle-orm'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
-import { sessions, characters, maps } from '../../../lib/db/schema'
+import { sessions, characters, maps, inventoryItems, sessionSpells } from '../../../lib/db/schema'
 import type { CreationRolls, RollAttempt, SessionMetadata } from '../../../lib/db/schema'
 import logger from '../../../lib/logger'
 
@@ -83,6 +83,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const session = result[0]
       tx.insert(characters).values({ sessionId: session.id, stats: initialStats, initialStats, creationRolls }).run()
       tx.insert(maps).values({ sessionId: session.id, name: 'Map 1' }).run()
+
+      // Seed default inventory items from consumable definitions
+      if (gameSystem.consumables && gameSystem.consumables.length > 0) {
+        for (const consumable of gameSystem.consumables) {
+          for (let i = 0; i < consumable.initialCount; i++) {
+            tx.insert(inventoryItems).values({
+              sessionId: session.id,
+              name: consumable.name,
+              quantity: 1,
+              isSpecial: false,
+              itemType: consumable.itemType,
+              doseCount: consumable.doseCount,
+              healAmount: consumable.healAmount ?? null,
+              healDice: consumable.healDice ?? null,
+            }).run()
+          }
+        }
+      }
+
+      // Seed default spell state from spell definitions
+      if (gameSystem.spells && gameSystem.spells.length > 0) {
+        for (const spell of gameSystem.spells) {
+          tx.insert(sessionSpells).values({
+            sessionId: session.id,
+            spellId: spell.id,
+            usesRemaining: spell.maxUses,
+          }).run()
+        }
+      }
+
       return session.id
     })
 
