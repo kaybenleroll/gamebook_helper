@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../../lib/db'
 import { characters, combats, combatRounds } from '../../../../../../lib/db/schema'
 import { eq, asc, and } from 'drizzle-orm'
@@ -6,6 +7,11 @@ import type { CombatOutcomeValue } from '../../../../../../lib/db/schema'
 import { resolveSession } from '../../../../../../lib/api/withSession'
 import { formatCombat } from '../../../../../../lib/combat-utils'
 import logger from '../../../../../../lib/logger'
+
+const PatchCombatSchema = z.object({
+  outcome: z.string().optional(),
+  endedAt: z.string().optional(),
+})
 
 export async function GET(
   _request: NextRequest,
@@ -70,7 +76,14 @@ export async function PATCH(
       .get()
     if (!combat) return NextResponse.json({ error: 'Combat not found' }, { status: 404 })
 
-    const body = (await request.json()) as { outcome?: unknown; endedAt?: unknown }
+    const parseResult = PatchCombatSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
+    }
+    const body = parseResult.data
 
     // Combat outcome is server-authoritative: player_won and player_lost must only be
     // set by the round-resolution path (POST .../rounds).

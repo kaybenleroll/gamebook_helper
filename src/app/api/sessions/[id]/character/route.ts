@@ -1,20 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../lib/db'
 import { characters } from '../../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { resolveSession } from '../../../../../lib/api/withSession'
 import logger from '../../../../../lib/logger'
 
-interface EquipmentItem {
-  name: string
-  value: number
-}
+const EquipmentItemSchema = z.object({
+  name: z.string().min(1),
+  value: z.number(),
+})
 
-type PatchBody =
-  | { stat: string; delta: number; target?: 'current' | 'initial'; value?: never; equipment?: never; clearCreationRolls?: never }
-  | { stat: string; value: number; target?: 'current' | 'initial'; delta?: never; equipment?: never; clearCreationRolls?: never }
-  | { equipment: 'weapon' | 'armour'; item: EquipmentItem; stat?: never; delta?: never; value?: never; clearCreationRolls?: never }
-  | { clearCreationRolls: true; stat?: never; delta?: never; value?: never; equipment?: never }
+const PatchBodySchema = z.union([
+  // Clear creation rolls branch
+  z.object({
+    clearCreationRolls: z.literal(true),
+  }),
+  // Equipment update branch
+  z.object({
+    equipment: z.enum(['weapon', 'armour']),
+    item: EquipmentItemSchema,
+  }),
+  // Stat delta branch
+  z.object({
+    stat: z.string().min(1),
+    delta: z.number(),
+    value: z.never().optional(),
+    target: z.enum(['current', 'initial']).optional(),
+  }),
+  // Stat absolute value branch
+  z.object({
+    stat: z.string().min(1),
+    value: z.number(),
+    delta: z.never().optional(),
+    target: z.enum(['current', 'initial']).optional(),
+  }),
+])
 
 export async function PATCH(
   request: NextRequest,
@@ -28,13 +49,20 @@ export async function PATCH(
     const { session, character, gameSystem } = ctx
     const sessionId = session.id
 
-    const body = await request.json() as Record<string, unknown>
+    const parseResult = PatchBodySchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
+    }
+    const body = parseResult.data
 
     const currentStats = character.stats as Record<string, unknown>
     const currentInitialStats = character.initialStats as Record<string, unknown>
 
     // --- Clear creation rolls branch ---
-    if ((body as Record<string, unknown>).clearCreationRolls === true) {
+    if ('clearCreationRolls' in body && body.clearCreationRolls === true) {
       db.update(characters)
         .set({ creationRolls: null })
         .where(eq(characters.sessionId, sessionId))
@@ -43,52 +71,24 @@ export async function PATCH(
     }
 
     // --- Equipment update branch ---
-    if (body.equipment !== undefined) {
-      const { equipment, item } = body as { equipment: unknown; item: unknown }
-      if (equipment !== 'weapon' && equipment !== 'armour') {
-        return NextResponse.json(
-          { error: 'equipment must be "weapon" or "armour"' },
-          { status: 400 },
-        )
-      }
-      if (
-        !item ||
-        typeof item !== 'object' ||
-        typeof (item as Record<string, unknown>).name !== 'string' ||
-        typeof (item as Record<string, unknown>).value !== 'number'
-      ) {
-        return NextResponse.json(
-          { error: 'item must be { name: string, value: number }' },
-          { status: 400 },
-        )
-      }
+    if ('equipment' in body) {
+      const { equipment, item } = body
       const newStats = { ...currentStats, [equipment]: item }
       db.update(characters).set({ stats: newStats }).where(eq(characters.sessionId, sessionId)).run()
       return NextResponse.json({ stats: newStats, initialStats: currentInitialStats })
     }
 
     // --- Stat adjustment branch ---
-    const { stat, delta, value: absoluteValue, target } = body as {
-      stat?: unknown; delta?: unknown; value?: unknown; target?: unknown
-    }
+    // At this point body is narrowed to one of the stat variants (delta or value).
+    const statBody = body as { stat: string; delta?: number; value?: number; target?: 'current' | 'initial' }
+    const { stat, target } = statBody
+    const delta = statBody.delta
+    const absoluteValue = statBody.value
 
-    if (!stat || typeof stat !== 'string') {
-      return NextResponse.json({ error: 'stat (string) is required' }, { status: 400 })
-    }
-
-    const parsedTarget = (target as string | undefined) ?? 'current'
-    if (parsedTarget !== 'current' && parsedTarget !== 'initial') {
-      return NextResponse.json({ error: 'target must be "current" or "initial"' }, { status: 400 })
-    }
+    const parsedTarget = target ?? 'current'
 
     const isDelta = typeof delta === 'number'
     const isAbsolute = typeof absoluteValue === 'number'
-    if (!isDelta && !isAbsolute) {
-      return NextResponse.json(
-        { error: 'delta (number) or value (number) is required' },
-        { status: 400 },
-      )
-    }
 
     // Game-over guard — only blocks current stat writes, not initialStats
     if (parsedTarget === 'current') {

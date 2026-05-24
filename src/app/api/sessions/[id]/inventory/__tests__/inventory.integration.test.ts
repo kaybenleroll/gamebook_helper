@@ -301,7 +301,7 @@ describe('Inventory integration', () => {
       expect(body['quantity']).toBe(1)
     })
 
-    it('returns 400 when name is missing', async () => {
+    it('returns 400 with Zod details when name is missing', async () => {
       const { sessionId } = seedGqSession()
 
       const response = await addItem(
@@ -310,11 +310,12 @@ describe('Inventory integration', () => {
       )
 
       expect(response.status).toBe(400)
-      const body = await response.json() as { error: string }
-      expect(body.error).toMatch(/name.*required/i)
+      const body = await response.json() as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid request body')
+      expect(body.details).toBeDefined()
     })
 
-    it('returns 400 when quantity is not a positive integer', async () => {
+    it('returns 400 with Zod details when quantity is not a positive integer', async () => {
       const { sessionId } = seedGqSession()
 
       const response = await addItem(
@@ -323,6 +324,23 @@ describe('Inventory integration', () => {
       )
 
       expect(response.status).toBe(400)
+      const body = await response.json() as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid request body')
+      expect(body.details).toBeDefined()
+    })
+
+    it('returns 400 with Zod details when body is not an object', async () => {
+      const { sessionId } = seedGqSession()
+
+      const response = await addItem(
+        makePostRequest(`http://localhost/api/sessions/${sessionId}/inventory`, 'invalid'),
+        makeParams(sessionId),
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json() as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid request body')
+      expect(body.details).toBeDefined()
     })
 
     it('returns 404 when the session does not exist', async () => {

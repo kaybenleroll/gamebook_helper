@@ -266,8 +266,9 @@ describe('PATCH /api/sessions/[id]/character', () => {
     )
 
     expect(response.status).toBe(400)
-    const body = await response.json() as { error: string }
-    expect(body.error).toMatch(/delta.*value.*required/i)
+    const body = await response.json() as { error: string; details: unknown[] }
+    expect(body.error).toBe('Invalid request body')
+    expect(body.details).toBeDefined()
   })
 
   it('returns 400 when stat field is missing from the payload', async () => {
@@ -279,8 +280,23 @@ describe('PATCH /api/sessions/[id]/character', () => {
     )
 
     expect(response.status).toBe(400)
-    const body = await response.json() as { error: string }
-    expect(body.error).toMatch(/stat.*required/i)
+    const body = await response.json() as { error: string; details: unknown[] }
+    expect(body.error).toBe('Invalid request body')
+    expect(body.details).toBeDefined()
+  })
+
+  it('returns 400 when body is not an object (invalid JSON type)', async () => {
+    const { sessionId } = seedSession()
+
+    const response = await PATCH(
+      makePatchRequest(sessionId, 'not-an-object'),
+      makeParams(sessionId),
+    )
+
+    expect(response.status).toBe(400)
+    const body = await response.json() as { error: string; details: unknown[] }
+    expect(body.error).toBe('Invalid request body')
+    expect(body.details).toBeDefined()
   })
 
   it('returns 400 for an unknown stat name', async () => {
@@ -305,11 +321,12 @@ describe('PATCH /api/sessions/[id]/character', () => {
     )
 
     expect(response.status).toBe(400)
-    const body = await response.json() as { error: string }
-    expect(body.error).toMatch(/weapon.*armour/i)
+    const body = await response.json() as { error: string; details: unknown[] }
+    expect(body.error).toBe('Invalid request body')
+    expect(body.details).toBeDefined()
   })
 
-  it('returns 400 when equipment item is malformed', async () => {
+  it('returns 400 when equipment item is malformed (missing value field)', async () => {
     const { sessionId } = seedSession()
 
     const response = await PATCH(
@@ -318,8 +335,9 @@ describe('PATCH /api/sessions/[id]/character', () => {
     )
 
     expect(response.status).toBe(400)
-    const body = await response.json() as { error: string }
-    expect(body.error).toMatch(/item must be/i)
+    const body = await response.json() as { error: string; details: unknown[] }
+    expect(body.error).toBe('Invalid request body')
+    expect(body.details).toBeDefined()
   })
 
   // -------------------------------------------------------------------------

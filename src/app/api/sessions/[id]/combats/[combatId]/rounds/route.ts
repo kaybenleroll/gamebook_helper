@@ -1,10 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../../../lib/db'
 import { characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
 import { eq, count, and, desc } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../../lib/db/schema'
 import { resolveSession } from '../../../../../../../lib/api/withSession'
 import logger from '../../../../../../../lib/logger'
+
+const LuckResultSchema = z.object({
+  type: z.enum(['attack', 'defence']),
+  roll: z.number(),
+  success: z.boolean(),
+  delta: z.number(),
+  message: z.string(),
+})
+
+const PostRoundSchema = z.object({
+  chosenOptions: z.record(z.string(), z.unknown()).optional(),
+  combatModifiers: z.record(z.string(), z.unknown()).optional(),
+  overrides: z
+    .object({
+      damageDealt: z.number().optional(),
+      damageTaken: z.number().optional(),
+    })
+    .optional(),
+  luckResults: z.array(LuckResultSchema).optional(),
+})
 
 function formatTs(v: Date | number | null): string | null {
   if (!v) return null
@@ -48,18 +69,14 @@ export async function POST(
 
     const { character } = ctx
 
-    const body = (await request.json()) as {
-      chosenOptions?: Record<string, unknown>
-      combatModifiers?: Record<string, unknown>
-      overrides?: { damageDealt?: number; damageTaken?: number }
-      luckResults?: Array<{
-        type: 'attack' | 'defence'
-        roll: number
-        success: boolean
-        delta: number
-        message: string
-      }>
+    const parseResult = PostRoundSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
     }
+    const body = parseResult.data
 
     const chosenOptions = body.chosenOptions ?? {}
     const combatModifiers = body.combatModifiers ?? {}

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../lib/db'
 import { sessions, maps } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
 import logger from '../../../../../lib/logger'
+
+const PostMapSchema = z.object({
+  name: z.string().min(1),
+})
 
 function formatMap(map: typeof maps.$inferSelect) {
   return {
@@ -62,15 +67,14 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    const body = (await request.json()) as { name?: unknown }
-    const { name } = body
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
+    const parseResult = PostMapSchema.safeParse(await request.json())
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'name is required and must be a non-empty string' },
+        { error: 'Invalid request body', details: parseResult.error.issues },
         { status: 400 },
       )
     }
+    const { name } = parseResult.data
 
     db.insert(maps)
       .values({ sessionId, name: name.trim() })

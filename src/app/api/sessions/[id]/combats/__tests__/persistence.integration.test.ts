@@ -686,4 +686,77 @@ describe('Combat persistence integration', () => {
       expect(metadata.initiativeWinner).toBe('enemy')
     })
   })
+
+  // -------------------------------------------------------------------------
+  // Zod validation — invalid body tests
+  // -------------------------------------------------------------------------
+
+  describe('Invalid body — Zod validation (400 responses)', () => {
+    it('POST /combats/[id]/rounds returns 400 with Zod details when body is a non-object', async () => {
+      const { sessionId, combatId } = seedSessionWithCombat()
+
+      const response = await resolveRound(
+        makeRoundRequest(sessionId, combatId, 'not-an-object'),
+        makeRoundParams(sessionId, combatId),
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json() as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid request body')
+      expect(body.details).toBeDefined()
+    })
+
+    it('POST /combats/[id]/rounds returns 400 with Zod details when overrides has wrong type', async () => {
+      const { sessionId, combatId } = seedSessionWithCombat()
+
+      const response = await resolveRound(
+        makeRoundRequest(sessionId, combatId, { overrides: { damageDealt: 'not-a-number' } }),
+        makeRoundParams(sessionId, combatId),
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json() as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid request body')
+      expect(body.details).toBeDefined()
+    })
+
+    it('POST /combats/[id]/rounds returns 400 with Zod details when luckResults entry is malformed', async () => {
+      const { sessionId, combatId } = seedSessionWithCombat()
+
+      const response = await resolveRound(
+        makeRoundRequest(sessionId, combatId, {
+          luckResults: [{ type: 'invalid-type', roll: 5, success: true, delta: -1, message: 'Lucky!' }],
+        }),
+        makeRoundParams(sessionId, combatId),
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json() as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid request body')
+      expect(body.details).toBeDefined()
+    })
+
+    it('POST /combats (start combat) returns 400 with Zod details when body is not an object', async () => {
+      const { sessionId } = seedSession()
+
+      const response = await startCombat(
+        makeStartRequest(sessionId, 'not-an-object'),
+        makeStartParams(sessionId),
+      )
+
+      expect(response.status).toBe(400)
+    })
+
+    it('PATCH /character returns 400 with Zod details when body is a plain array', async () => {
+      const { sessionId } = seedSession()
+
+      // Arrays are not valid for the character PATCH schema — Zod should reject them.
+      const response = await startCombat(
+        makeStartRequest(sessionId, []),
+        makeStartParams(sessionId),
+      )
+
+      expect(response.status).toBe(400)
+    })
+  })
 })

@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../lib/db'
 import { sessions } from '../../../../lib/db/schema'
 import type { SessionMetadata } from '../../../../lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { resolveSession } from '../../../../lib/api/withSession'
 import logger from '../../../../lib/logger'
+
+const PatchSessionSchema = z.object({
+  bookTitle: z.string().min(1).optional(),
+  notes: z.string().nullable().optional(),
+  panelOrder: z.array(z.string()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+}).refine(
+  (data) =>
+    data.bookTitle !== undefined ||
+    data.notes !== undefined ||
+    data.panelOrder !== undefined ||
+    data.metadata !== undefined,
+  { message: 'At least one field (bookTitle, notes, panelOrder, or metadata) must be provided' },
+)
 
 export async function GET(
   _request: NextRequest,
@@ -51,30 +66,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
     }
 
-    const body = await request.json() as { bookTitle?: unknown; notes?: unknown; panelOrder?: unknown; metadata?: unknown }
-    const { bookTitle, notes, panelOrder, metadata } = body
-
-    if (bookTitle !== undefined && (typeof bookTitle !== 'string' || bookTitle.trim() === '')) {
-      return NextResponse.json({ error: 'bookTitle must be a non-empty string' }, { status: 400 })
+    const parseResult = PatchSessionSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
     }
-
-    if (notes !== undefined && notes !== null && typeof notes !== 'string') {
-      return NextResponse.json({ error: 'notes must be a string or null' }, { status: 400 })
-    }
-
-    if (panelOrder !== undefined) {
-      if (!Array.isArray(panelOrder) || !panelOrder.every((item) => typeof item === 'string')) {
-        return NextResponse.json({ error: 'panelOrder must be an array of strings' }, { status: 400 })
-      }
-    }
-
-    if (metadata !== undefined && (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata))) {
-      return NextResponse.json({ error: 'metadata must be an object' }, { status: 400 })
-    }
-
-    if (bookTitle === undefined && notes === undefined && panelOrder === undefined && metadata === undefined) {
-      return NextResponse.json({ error: 'At least one field (bookTitle, notes, panelOrder, or metadata) must be provided' }, { status: 400 })
-    }
+    const { bookTitle, notes, panelOrder, metadata } = parseResult.data
 
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
     if (!session) {

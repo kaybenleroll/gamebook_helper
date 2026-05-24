@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
 import logger from '../../../../../../lib/logger'
 
-interface BulkItem {
-  count: number
-  itemName: string
-}
+const BulkItemSchema = z.object({
+  itemName: z.string().min(1),
+  count: z.number().int().min(1).optional(),
+})
+
+const PostBulkInventorySchema = z.array(BulkItemSchema)
 
 function formatItem(item: typeof inventoryItems.$inferSelect) {
   return {
@@ -43,39 +46,17 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    const body = (await request.json()) as unknown
-
-    if (!Array.isArray(body)) {
-      return NextResponse.json({ error: 'Request body must be an array' }, { status: 400 })
+    const parseResult = PostBulkInventorySchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
     }
-
-    const items = body as BulkItem[]
+    const items = parseResult.data
 
     if (items.length === 0) {
       return NextResponse.json([], { status: 201 })
-    }
-
-    // Validate all items before inserting any
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      if (!item || typeof item !== 'object') {
-        return NextResponse.json({ error: `Item at index ${i} is not an object` }, { status: 400 })
-      }
-      if (!item.itemName || typeof item.itemName !== 'string' || item.itemName.trim() === '') {
-        return NextResponse.json(
-          { error: `Item at index ${i}: itemName is required and must be a non-empty string` },
-          { status: 400 },
-        )
-      }
-      if (
-        item.count !== undefined &&
-        (typeof item.count !== 'number' || !Number.isInteger(item.count) || item.count < 1)
-      ) {
-        return NextResponse.json(
-          { error: `Item at index ${i}: count must be a positive integer` },
-          { status: 400 },
-        )
-      }
     }
 
     // Insert all items in a single transaction

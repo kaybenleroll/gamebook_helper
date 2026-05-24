@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import '../../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
 import { db } from '../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
 import logger from '../../../../../lib/logger'
+
+const PostInventorySchema = z.object({
+  name: z.string().min(1),
+  quantity: z.number().int().min(1).optional(),
+  isSpecial: z.boolean().optional(),
+})
 
 function formatItem(item: typeof inventoryItems.$inferSelect) {
   return {
@@ -102,41 +109,21 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
-    const body = (await request.json()) as {
-      name?: unknown
-      quantity?: unknown
-      isSpecial?: unknown
-    }
-
-    const { name, quantity, isSpecial } = body
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
+    const parseResult = PostInventorySchema.safeParse(await request.json())
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'name is required and must be a non-empty string' },
+        { error: 'Invalid request body', details: parseResult.error.issues },
         { status: 400 },
       )
     }
-
-    if (quantity !== undefined && (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1)) {
-      return NextResponse.json(
-        { error: 'quantity must be a positive integer' },
-        { status: 400 },
-      )
-    }
-
-    if (isSpecial !== undefined && typeof isSpecial !== 'boolean') {
-      return NextResponse.json(
-        { error: 'isSpecial must be a boolean' },
-        { status: 400 },
-      )
-    }
+    const { name, quantity, isSpecial } = parseResult.data
 
     db.insert(inventoryItems)
       .values({
         sessionId,
         name: name.trim(),
-        quantity: typeof quantity === 'number' ? quantity : 1,
-        isSpecial: typeof isSpecial === 'boolean' ? isSpecial : false,
+        quantity: quantity ?? 1,
+        isSpecial: isSpecial ?? false,
       })
       .run()
 

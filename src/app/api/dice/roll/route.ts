@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { rollDice, parseDiceFormula } from '../../../../lib/dice'
 import logger from '../../../../lib/logger'
 
+const RollDiceSchema = z.object({
+  formula: z.string().min(1),
+})
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json() as { formula?: unknown }
-    const { formula } = body
-
-    if (!formula || typeof formula !== 'string') {
-      return NextResponse.json({ error: 'formula is required and must be a string' }, { status: 400 })
+    const parseResult = RollDiceSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
     }
+    const { formula } = parseResult.data
 
     const parsed = parseDiceFormula(formula)
     if (!parsed) {
