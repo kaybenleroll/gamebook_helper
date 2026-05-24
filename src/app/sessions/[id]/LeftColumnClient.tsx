@@ -148,6 +148,11 @@ export interface LeftColumnProps {
   primaryHealthStat: string
   primaryEnemyHealthStat: string
   hasTestLuck: boolean
+  hasEquipment: boolean
+  hasGold: boolean
+  hasCodewords: boolean
+  backpackLimit?: number
+  experienceStatKey?: string
   creationRolls: CreationRolls | null
   defaultDice: DiceSpec
   initialItems: InventoryItem[]
@@ -170,6 +175,11 @@ export default function LeftColumnClient({
   primaryHealthStat,
   primaryEnemyHealthStat,
   hasTestLuck,
+  hasEquipment,
+  hasGold,
+  hasCodewords,
+  backpackLimit,
+  experienceStatKey,
   creationRolls,
   defaultDice,
   initialItems,
@@ -245,6 +255,12 @@ export default function LeftColumnClient({
         gameSystemId={gameSystemId}
         isGameOver={isGameOver}
         primaryHealthStat={primaryHealthStat}
+        hasEquipment={hasEquipment}
+        hasTestLuck={hasTestLuck}
+        hasGold={hasGold}
+        hasCodewords={hasCodewords}
+        backpackLimit={backpackLimit}
+        experienceStatKey={experienceStatKey}
         creationRolls={creationRolls}
         onStatsChange={handleStatsChange}
         initialItems={initialItems}

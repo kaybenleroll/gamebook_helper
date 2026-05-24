@@ -464,6 +464,10 @@ export const grailQuest: GameSystem = {
   id: 'grail-quest',
   name: 'Grail Quest',
   experienceStatKey: 'experiencePoints',
+  hasEquipment: true,
+  hasGold: false,
+  hasCodewords: false,
+  backpackLimit: undefined,
   stats: [
     {
       key: 'lifePoints',

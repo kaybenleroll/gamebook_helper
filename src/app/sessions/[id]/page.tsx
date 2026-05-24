@@ -193,6 +193,11 @@ export default async function SessionPage({
             primaryHealthStat={gameSystem.primaryHealthStat}
             primaryEnemyHealthStat={gameSystem.combat?.primaryEnemyHealthStat ?? ''}
             hasTestLuck={typeof gameSystem.testLuck === 'function'}
+            hasEquipment={gameSystem.hasEquipment ?? false}
+            hasGold={gameSystem.hasGold ?? false}
+            hasCodewords={gameSystem.hasCodewords ?? false}
+            backpackLimit={gameSystem.backpackLimit}
+            experienceStatKey={gameSystem.experienceStatKey}
             creationRolls={(character.creationRolls as CreationRolls | null) ?? null}
             defaultDice={gameSystem.defaultDice}
             initialItems={inventoryForClient}

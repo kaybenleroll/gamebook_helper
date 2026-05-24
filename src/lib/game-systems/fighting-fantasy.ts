@@ -236,6 +236,11 @@ export const fightingFantasy: GameSystem = {
     }
   },
 
+  hasEquipment: false,
+  hasGold: true,
+  hasCodewords: true,
+  backpackLimit: 10,
+
   initialMetadata(): import('../db/schema').SessionMetadata {
     return { gold: 0, codewords: [] }
   },

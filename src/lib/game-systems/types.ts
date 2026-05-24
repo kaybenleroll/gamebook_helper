@@ -165,4 +165,22 @@ export interface GameSystem {
    * Systems without XP tracking leave this undefined.
    */
   experienceStatKey?: string
+
+  // ---- Capability flags ----
+  // Consume these in UI and routes; never branch on gameSystemId outside game-system modules.
+
+  /** Whether the system tracks equipped weapon and armour in the character sheet. */
+  hasEquipment?: boolean
+
+  /** Whether the system tracks gold pieces in session metadata. */
+  hasGold?: boolean
+
+  /** Whether the system tracks codewords in session metadata. */
+  hasCodewords?: boolean
+
+  /**
+   * Maximum number of non-special backpack slots, if the system enforces an
+   * inventory cap. Undefined means no limit is displayed or enforced.
+   */
+  backpackLimit?: number
 }
