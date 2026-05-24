@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { grailQuestCombat } from '../grail-quest'
+import type { GqEnemyStats, GqEnemyState, GqMetadata } from '../grail-quest'
 
 // ---- Helpers ----
 
@@ -7,7 +8,7 @@ function makeEnemyStats(overrides?: Partial<{ name: string; lifePoints: number; 
   return { name: 'Goblin', lifePoints: 8, ...overrides }
 }
 
-function makeEnemyState(currentLifePoints: number) {
+function makeEnemyState(currentLifePoints: number): GqEnemyState {
   return { currentLifePoints }
 }
 
@@ -16,16 +17,31 @@ function makeCharacterStats(overrides?: Partial<{ lifePoints: number; experience
 }
 
 // Default metadata: playerThreshold 6, enemyThreshold comes from enemyStats
-const defaultMetadata = { playerThreshold: 6 }
+const defaultMetadata: GqMetadata = {
+  initiativeWinner: 'player',
+  playerRoll: 0,
+  enemyRoll: 0,
+  combatModifiers: {},
+  enemyXp: 0,
+  playerThreshold: 6,
+  enemyDamageBonus: 0,
+  playerDamageBonus: 0,
+  playerArmourReduction: 0,
+  enemyArmourReduction: 0,
+}
+
+function makeMetadata(overrides?: Partial<GqMetadata>): GqMetadata {
+  return { ...defaultMetadata, ...overrides }
+}
 
 function resolveWith(
   opts: {
-    enemyStats?: ReturnType<typeof makeEnemyStats>
-    enemyState?: ReturnType<typeof makeEnemyState>
+    enemyStats?: GqEnemyStats
+    enemyState?: GqEnemyState
     characterStats?: ReturnType<typeof makeCharacterStats>
     chosenOptions?: Record<string, unknown>
     combatModifiers?: Record<string, unknown>
-    metadata?: Record<string, unknown>
+    metadata?: GqMetadata
   } = {},
 ) {
   return grailQuestCombat.resolveRound({
@@ -101,28 +117,21 @@ describe('validateEnemyStats', () => {
 
 describe('start', () => {
   it('sets enemyState.currentLifePoints to enemyStats.lifePoints', () => {
-    const { enemyState } = grailQuestCombat.start(makeEnemyStats({ lifePoints: 14 })) as {
-      enemyState: Record<string, unknown>
-    }
-    expect(enemyState['currentLifePoints']).toBe(14)
+    const { enemyState } = grailQuestCombat.start(makeEnemyStats({ lifePoints: 14 }))
+    expect(enemyState.currentLifePoints).toBe(14)
   })
 
   it('resolves initiative without a tie result (2d6 each)', () => {
-    const { metadata } = grailQuestCombat.start(makeEnemyStats()) as {
-      enemyState: Record<string, unknown>
-      metadata: Record<string, unknown>
-    }
-    expect(['player', 'enemy']).toContain(metadata['initiativeWinner'])
-    expect(typeof metadata['playerRoll']).toBe('number')
-    expect(typeof metadata['enemyRoll']).toBe('number')
-    expect(metadata['playerRoll']).not.toBe(metadata['enemyRoll'])
+    const { metadata } = grailQuestCombat.start(makeEnemyStats())
+    expect(['player', 'enemy']).toContain(metadata.initiativeWinner)
+    expect(typeof metadata.playerRoll).toBe('number')
+    expect(typeof metadata.enemyRoll).toBe('number')
+    expect(metadata.playerRoll).not.toBe(metadata.enemyRoll)
   })
 
   it('stores enemyXp from input', () => {
-    const { metadata } = grailQuestCombat.start(makeEnemyStats({ xp: 25 })) as {
-      metadata: Record<string, unknown>
-    }
-    expect(metadata['enemyXp']).toBe(25)
+    const { metadata } = grailQuestCombat.start(makeEnemyStats({ xp: 25 }))
+    expect(metadata.enemyXp).toBe(25)
   })
 
   describe('auto-roll initiative', () => {
@@ -134,17 +143,14 @@ describe('start', () => {
         .mockReturnValueOnce(0)    // enemy die 1: 1
         .mockReturnValueOnce(0)    // enemy die 2: 1 → sum 2
       try {
-        const result = grailQuestCombat.start(makeEnemyStats()) as {
-          metadata: Record<string, unknown>
-          startNarrative?: string
-        }
-        expect(['player', 'enemy']).toContain(result.metadata['initiativeWinner'])
-        expect(typeof result.metadata['playerRoll']).toBe('number')
-        expect(typeof result.metadata['enemyRoll']).toBe('number')
-        expect(result.metadata['playerRoll']).not.toBe(result.metadata['enemyRoll'])
+        const result = grailQuestCombat.start(makeEnemyStats())
+        expect(['player', 'enemy']).toContain(result.metadata.initiativeWinner)
+        expect(typeof result.metadata.playerRoll).toBe('number')
+        expect(typeof result.metadata.enemyRoll).toBe('number')
+        expect(result.metadata.playerRoll).not.toBe(result.metadata.enemyRoll)
         expect(typeof result.startNarrative).toBe('string')
-        expect(result.startNarrative).toContain(String(result.metadata['playerRoll']))
-        expect(result.startNarrative).toContain(String(result.metadata['enemyRoll']))
+        expect(result.startNarrative).toContain(String(result.metadata.playerRoll))
+        expect(result.startNarrative).toContain(String(result.metadata.enemyRoll))
       } finally {
         vi.restoreAllMocks()
       }
@@ -153,22 +159,16 @@ describe('start', () => {
 
   describe('manual initiative override', () => {
     it('player override: initiativeWinner is player, narrative contains "book-prescribed", no roll values', () => {
-      const result = grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'player' }) as {
-        metadata: Record<string, unknown>
-        startNarrative?: string
-      }
-      expect(result.metadata['initiativeWinner']).toBe('player')
+      const result = grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'player' })
+      expect(result.metadata.initiativeWinner).toBe('player')
       expect(typeof result.startNarrative).toBe('string')
       expect(result.startNarrative).toContain('book-prescribed')
       expect(result.startNarrative).toContain('you go first')
     })
 
     it('enemy override: initiativeWinner is enemy, narrative contains "book-prescribed"', () => {
-      const result = grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'enemy' }) as {
-        metadata: Record<string, unknown>
-        startNarrative?: string
-      }
-      expect(result.metadata['initiativeWinner']).toBe('enemy')
+      const result = grailQuestCombat.start(makeEnemyStats(), { initiativeOverride: 'enemy' })
+      expect(result.metadata.initiativeWinner).toBe('enemy')
       expect(typeof result.startNarrative).toBe('string')
       expect(result.startNarrative).toContain('book-prescribed')
       expect(result.startNarrative).toContain('enemy goes first')
@@ -489,7 +489,7 @@ describe('resolveRound — combat modifiers', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99) // max dice → roll 12
     try {
       const normal = resolveWith()
-      const withBonus = resolveWith({ metadata: { playerThreshold: 6, playerDamageBonus: 3 } })
+      const withBonus = resolveWith({ metadata: makeMetadata({ playerDamageBonus: 3 }) })
       expect(withBonus.damageDealt).toBe(normal.damageDealt + 3)
     } finally {
       vi.restoreAllMocks()
@@ -506,7 +506,7 @@ describe('resolveRound — configurable thresholds', () => {
       .mockReturnValueOnce(0)             // enemy miss
       .mockReturnValueOnce(0)
     try {
-      const result = resolveWith({ metadata: { playerThreshold: 4 } })
+      const result = resolveWith({ metadata: makeMetadata({ playerThreshold: 4 }) })
       const detail = result.detail as Record<string, unknown>
       expect(detail['playerThreshold']).toBe(4)
       expect(detail['playerHit']).toBe(true) // 5 > 4
@@ -523,7 +523,7 @@ describe('resolveRound — configurable thresholds', () => {
       .mockReturnValueOnce(0)             // enemy miss
       .mockReturnValueOnce(0)
     try {
-      const result = resolveWith({ metadata: { playerThreshold: 4 } })
+      const result = resolveWith({ metadata: makeMetadata({ playerThreshold: 4 }) })
       const detail = result.detail as Record<string, unknown>
       expect(detail['playerHit']).toBe(false) // 4 is NOT > 4
       expect(result.damageDealt).toBe(0)
@@ -540,7 +540,7 @@ describe('resolveRound — configurable thresholds', () => {
       .mockReturnValueOnce(0)             // enemy miss
       .mockReturnValueOnce(0)
     try {
-      const result = resolveWith({ metadata: { playerThreshold: 4 } })
+      const result = resolveWith({ metadata: makeMetadata({ playerThreshold: 4 }) })
       const detail = result.detail as Record<string, unknown>
       expect(detail['playerHit']).toBe(false) // 3 < 4
       expect(result.damageDealt).toBe(0)
@@ -589,7 +589,7 @@ describe('resolveRound — configurable thresholds', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.99)
     try {
       const result = resolveWith({
-        metadata: { playerThreshold: 4 },
+        metadata: makeMetadata({ playerThreshold: 4 }),
         chosenOptions: { riskyAttack: true },
       })
       const detail = result.detail as Record<string, unknown>
@@ -605,7 +605,7 @@ describe('roundOptions', () => {
     const opts = grailQuestCombat.roundOptions({
       enemyStats: makeEnemyStats(),
       enemyState: makeEnemyState(8),
-      metadata: {},
+      metadata: defaultMetadata,
       characterStats: makeCharacterStats(),
     })
     const riskyOpt = opts.find((o) => o.key === 'riskyAttack')
@@ -628,7 +628,7 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
       const result = resolveWith({
         enemyState: makeEnemyState(6),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+        metadata: makeMetadata({ initiativeWinner: 'player' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(true)
@@ -651,7 +651,7 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
       const result = resolveWith({
         enemyState: makeEnemyState(100),
         characterStats: makeCharacterStats({ lifePoints: 1 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+        metadata: makeMetadata({ initiativeWinner: 'enemy' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(true)
@@ -670,7 +670,7 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
       const result = resolveWith({
         enemyState: makeEnemyState(20),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+        metadata: makeMetadata({ initiativeWinner: 'player' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(false)
@@ -688,7 +688,7 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
       const result = resolveWith({
         enemyState: makeEnemyState(20),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+        metadata: makeMetadata({ initiativeWinner: 'player' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(false)
@@ -707,7 +707,7 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
       const result = resolveWith({
         enemyState: makeEnemyState(6),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'player' },
+        metadata: makeMetadata({ initiativeWinner: 'player' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(true)
@@ -726,7 +726,7 @@ describe('resolveRound — sequential initiative (phaseTwoSkipped)', () => {
       const result = resolveWith({
         enemyState: makeEnemyState(100),
         characterStats: makeCharacterStats({ lifePoints: 1 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+        metadata: makeMetadata({ initiativeWinner: 'enemy' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(true)
@@ -758,7 +758,7 @@ describe('resolveRound — enemy initiative with pre-wounded enemy (LP ≤ 5)', 
       const result = resolveWith({
         enemyState: makeEnemyState(3),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+        metadata: makeMetadata({ initiativeWinner: 'enemy' }),
       })
       const detail = result.detail as Record<string, unknown>
       // Phase 2 must have run — enemy attacked first (missed), then player attacked and killed enemy
@@ -785,7 +785,7 @@ describe('resolveRound — enemy initiative with pre-wounded enemy (LP ≤ 5)', 
       const result = resolveWith({
         enemyState: makeEnemyState(5),
         characterStats: makeCharacterStats({ lifePoints: 20 }),
-        metadata: { playerThreshold: 6, initiativeWinner: 'enemy' },
+        metadata: makeMetadata({ initiativeWinner: 'enemy' }),
       })
       const detail = result.detail as Record<string, unknown>
       expect(detail['phaseTwoSkipped']).toBe(false)
@@ -811,11 +811,9 @@ describe('initiative tie re-roll', () => {
       return value
     })
     try {
-      const { metadata } = grailQuestCombat.start(makeEnemyStats()) as {
-        metadata: Record<string, unknown>
-      }
-      expect(['player', 'enemy']).toContain(metadata['initiativeWinner'])
-      expect(metadata['playerRoll']).not.toBe(metadata['enemyRoll'])
+      const { metadata } = grailQuestCombat.start(makeEnemyStats())
+      expect(['player', 'enemy']).toContain(metadata.initiativeWinner)
+      expect(metadata.playerRoll).not.toBe(metadata.enemyRoll)
     } finally {
       vi.restoreAllMocks()
     }

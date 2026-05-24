@@ -62,17 +62,24 @@ export function applyXpThreshold(
 
 // ---- GQ combat type helpers ----
 
-interface GqEnemyStats {
+export interface GqEnemyStats {
   name: string
   lifePoints: number
   xp?: number
+  enemyThreshold?: number
+  playerThreshold?: number
+  enemyDamageBonus?: number
+  playerDamageBonus?: number
+  playerArmourReduction?: number
+  enemyArmourReduction?: number
+  initiativeMode?: 'auto' | 'player' | 'enemy'
 }
 
-interface GqEnemyState {
+export interface GqEnemyState {
   currentLifePoints: number
 }
 
-interface GqMetadata {
+export interface GqMetadata {
   initiativeWinner: 'player' | 'enemy'
   playerRoll: number
   enemyRoll: number
@@ -87,7 +94,7 @@ interface GqMetadata {
 
 // ---- GQ combat module ----
 
-export const grailQuestCombat: CombatModule = {
+export const grailQuestCombat: CombatModule<GqEnemyStats, GqEnemyState, GqMetadata> = {
   knockoutThreshold: 5,
 
   enemyStatFields: [
@@ -132,9 +139,11 @@ export const grailQuestCombat: CombatModule = {
     return errors
   },
 
-  start(input: unknown, options?: { initiativeOverride?: 'player' | 'enemy' }): { enemyState: unknown; metadata: unknown; startNarrative?: string } {
-    const s = input as GqEnemyStats
-    const lifePoints = typeof s.lifePoints === 'number' ? s.lifePoints : 0
+  start(
+    input: GqEnemyStats,
+    options?: { initiativeOverride?: 'player' | 'enemy' },
+  ): { enemyState: GqEnemyState; metadata: GqMetadata; startNarrative?: string } {
+    const lifePoints = typeof input.lifePoints === 'number' ? input.lifePoints : 0
 
     let initiativeWinner: 'player' | 'enemy'
     let playerRoll: number
@@ -167,30 +176,26 @@ export const grailQuestCombat: CombatModule = {
       playerRoll,
       enemyRoll,
       combatModifiers: {},
-      enemyXp: typeof s.xp === 'number' ? s.xp : 0,
-      playerThreshold: (input as any).playerThreshold ?? 4,
+      enemyXp: typeof input.xp === 'number' ? input.xp : 0,
+      playerThreshold: input.playerThreshold ?? 4,
       enemyDamageBonus:
-        typeof (input as any).enemyDamageBonus === 'number'
-          ? Math.max(0, (input as any).enemyDamageBonus)
-          : 0,
+        typeof input.enemyDamageBonus === 'number' ? Math.max(0, input.enemyDamageBonus) : 0,
       playerDamageBonus:
-        typeof (input as any).playerDamageBonus === 'number'
-          ? Math.max(0, (input as any).playerDamageBonus)
-          : 0,
+        typeof input.playerDamageBonus === 'number' ? Math.max(0, input.playerDamageBonus) : 0,
       playerArmourReduction:
-        typeof (input as any).playerArmourReduction === 'number'
-          ? Math.max(0, (input as any).playerArmourReduction)
+        typeof input.playerArmourReduction === 'number'
+          ? Math.max(0, input.playerArmourReduction)
           : 0,
       enemyArmourReduction:
-        typeof (input as any).enemyArmourReduction === 'number'
-          ? Math.max(0, (input as any).enemyArmourReduction)
+        typeof input.enemyArmourReduction === 'number'
+          ? Math.max(0, input.enemyArmourReduction)
           : 0,
     }
 
     return { enemyState, metadata, startNarrative }
   },
 
-  roundOptions(_state: CombatState): RoundOption[] {
+  roundOptions(_state: CombatState<GqEnemyStats, GqEnemyState, GqMetadata>): RoundOption[] {
     return [
       {
         key: 'riskyAttack',
@@ -203,24 +208,24 @@ export const grailQuestCombat: CombatModule = {
   },
 
   resolveRound(args: {
-    enemyStats: unknown
-    enemyState: unknown
-    metadata: unknown
+    enemyStats: GqEnemyStats
+    enemyState: GqEnemyState
+    metadata: GqMetadata
     characterStats: unknown
     chosenOptions: Record<string, unknown>
     combatModifiers: Record<string, unknown>
   }): {
-    enemyState: unknown
+    enemyState: GqEnemyState
     characterDeltas: Record<string, number>
     detail: unknown
     damageDealt: number
     damageTaken: number
     outcome: CombatOutcome | null
   } {
-    const enemyState = args.enemyState as GqEnemyState
+    const enemyState = args.enemyState
     const characterStats = args.characterStats as Record<string, unknown>
-    const mods = args.combatModifiers as Record<string, unknown>
-    const metadataRecord = args.metadata as GqMetadata
+    const mods = args.combatModifiers
+    const metadataRecord = args.metadata
 
     const currentLifePoints =
       typeof enemyState.currentLifePoints === 'number' ? enemyState.currentLifePoints : 0
@@ -235,9 +240,7 @@ export const grailQuestCombat: CombatModule = {
     const metadataPlayerThreshold =
       typeof metadataRecord?.playerThreshold === 'number' ? metadataRecord.playerThreshold : 4
     const enemyThresholdFromStats =
-      typeof (args.enemyStats as any)?.enemyThreshold === 'number'
-        ? (args.enemyStats as any).enemyThreshold as number
-        : 6
+      typeof args.enemyStats.enemyThreshold === 'number' ? args.enemyStats.enemyThreshold : 6
 
     // Damage bonuses and armour reductions — sourced from combat metadata
     const playerDamageBonus =
@@ -279,13 +282,16 @@ export const grailQuestCombat: CombatModule = {
     const playerHit = playerRoll > playerThreshold
     let rawDamageDealt = 0
     if (playerHit) {
-      const baseDamage = Math.max(0, (playerRoll - playerThreshold) + playerDamageBonus - enemyArmourReduction)
+      const baseDamage = Math.max(
+        0,
+        playerRoll - playerThreshold + playerDamageBonus - enemyArmourReduction,
+      )
       rawDamageDealt = riskyAttack ? baseDamage * 2 : baseDamage
     }
 
     const enemyHit = enemyRoll > enemyThreshold
     const rawDamageTaken = enemyHit
-      ? Math.max(0, (enemyRoll - enemyThreshold) + enemyDamageBonus - playerArmourReduction)
+      ? Math.max(0, enemyRoll - enemyThreshold + enemyDamageBonus - playerArmourReduction)
       : 0
 
     // Phase 1 attacker strikes. Evaluate outcome after Phase 1.
@@ -541,7 +547,8 @@ export const grailQuest: GameSystem = {
         typeof newBonuses === 'number' &&
         (typeof oldBonuses !== 'number' || newBonuses !== oldBonuses)
       ) {
-        initialDeltas['lifePointsXpBonuses'] = newBonuses - (typeof oldBonuses === 'number' ? oldBonuses : 0)
+        initialDeltas['lifePointsXpBonuses'] =
+          newBonuses - (typeof oldBonuses === 'number' ? oldBonuses : 0)
       }
       return Object.keys(initialDeltas).length > 0 ? { initialDeltas } : {}
     }

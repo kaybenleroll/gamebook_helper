@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fightingFantasy, fightingFantasyCombat } from '../fighting-fantasy'
+import type { FfEnemyStats, FfEnemyState, FfMetadata } from '../fighting-fantasy'
 import { gameSystemRegistry } from '../registry'
 import '../fighting-fantasy'
 import * as diceModule from '../../dice'
@@ -315,16 +316,17 @@ function makeFFCharacterStats(overrides?: Partial<{ skill: number; stamina: numb
   return { skill: 10, stamina: 18, luck: 8, ...overrides }
 }
 
-const ffMetadata: Record<string, unknown> = {}
+const ffMetadata: FfMetadata = {}
 
 function ffResolveWith(
   opts: {
-    enemyState?: ReturnType<typeof makeFFEnemyState>
+    enemyState?: FfEnemyState
     characterStats?: ReturnType<typeof makeFFCharacterStats>
+    enemyStats?: FfEnemyStats
   } = {},
 ) {
   return fightingFantasyCombat.resolveRound({
-    enemyStats: {},
+    enemyStats: opts.enemyStats ?? { skill: 7, stamina: 10 },
     enemyState: opts.enemyState ?? makeFFEnemyState(10),
     metadata: ffMetadata,
     characterStats: opts.characterStats ?? makeFFCharacterStats(),
@@ -359,12 +361,10 @@ describe('fightingFantasyCombat — knockoutThreshold', () => {
 
 describe('fightingFantasyCombat — start', () => {
   it('initialises enemyState with skill, stamina, and initialStamina', () => {
-    const { enemyState } = fightingFantasyCombat.start({ skill: 8, stamina: 12 }) as {
-      enemyState: Record<string, unknown>
-    }
-    expect(enemyState['skill']).toBe(8)
-    expect(enemyState['stamina']).toBe(12)
-    expect(enemyState['initialStamina']).toBe(12)
+    const { enemyState } = fightingFantasyCombat.start({ skill: 8, stamina: 12 })
+    expect(enemyState.skill).toBe(8)
+    expect(enemyState.stamina).toBe(12)
+    expect(enemyState.initialStamina).toBe(12)
   })
 
   it('returns no startNarrative', () => {
@@ -442,8 +442,7 @@ describe('fightingFantasyCombat — resolveRound', () => {
       characterStats: makeFFCharacterStats({ skill: 10, stamina: 18 }),
     })
     expect(result.outcome).toBe('player_won')
-    const newEnemyState = result.enemyState as Record<string, unknown>
-    expect(newEnemyState['stamina']).toBe(0)
+    expect(result.enemyState.stamina).toBe(0)
   })
 
   it('combat ends with player_lost when player STAMINA reaches 0', () => {
