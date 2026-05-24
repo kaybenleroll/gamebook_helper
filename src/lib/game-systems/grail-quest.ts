@@ -88,6 +88,8 @@ interface GqMetadata {
 // ---- GQ combat module ----
 
 export const grailQuestCombat: CombatModule = {
+  knockoutThreshold: 5,
+
   enemyStatFields: [
     { key: 'name', label: 'Name', type: 'text', required: true },
     { key: 'lifePoints', label: 'Life Points', type: 'number', required: true },
@@ -380,6 +382,20 @@ export const grailQuestCombat: CombatModule = {
       outcome,
     }
   },
+
+  applyPostCombat(
+    combat: unknown,
+    _characterStats: unknown,
+  ): { xpGained?: number; statDeltas?: Record<string, number> } {
+    const c = combat as { metadata?: Record<string, unknown> }
+    const metadata = c?.metadata ?? {}
+    const enemyXp =
+      typeof metadata['enemyXp'] === 'number' ? (metadata['enemyXp'] as number) : 0
+    if (enemyXp > 0) {
+      return { xpGained: enemyXp }
+    }
+    return {}
+  },
 }
 
 function buildNarrative(info: {
@@ -461,6 +477,48 @@ export const grailQuest: GameSystem = {
     { id: 'fireball', name: 'Fireball', maxUses: 2, hitCondition: 'Roll 6+ on 2d6', damage: 75 },
   ],
   consumables: grailQuestConsumables,
+
+  applyConsumable(
+    item: unknown,
+    characterStats: unknown,
+    initialStats: unknown,
+  ): { statDeltas: Record<string, number>; message: string } {
+    const i = item as {
+      healAmount?: number | null
+      healDice?: string | null
+      name?: string
+    }
+    const stats = characterStats as Record<string, unknown>
+    const initial = initialStats as Record<string, unknown>
+
+    const currentLp = typeof stats['lifePoints'] === 'number' ? (stats['lifePoints'] as number) : 0
+    const maxLp =
+      typeof initial['lifePoints'] === 'number' ? (initial['lifePoints'] as number) : 0
+
+    let healRoll = 0
+
+    if (i.healDice) {
+      // Parse dice spec, e.g. "2d6"
+      const match = i.healDice.match(/^(\d+)d(\d+)$/)
+      if (match) {
+        const count = parseInt(match[1], 10)
+        const sides = parseInt(match[2], 10)
+        const rolls = rollDice(count, sides)
+        healRoll = rolls.reduce((a, b) => a + b, 0)
+      }
+    } else if (typeof i.healAmount === 'number') {
+      healRoll = i.healAmount
+    }
+
+    // Cap heal so LP does not exceed max
+    const actualHeal = Math.max(0, Math.min(healRoll, maxLp - currentLp))
+    const itemName = typeof i.name === 'string' ? i.name : 'consumable'
+
+    return {
+      statDeltas: { lifePoints: actualHeal },
+      message: `Used ${itemName}: restored ${actualHeal} LP (rolled ${healRoll}, capped at max ${maxLp}).`,
+    }
+  },
 }
 
 gameSystemRegistry.register(grailQuest)
