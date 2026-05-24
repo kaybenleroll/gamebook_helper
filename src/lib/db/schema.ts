@@ -48,7 +48,7 @@ export const characters = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     sessionId: integer('session_id')
       .notNull()
-      .references(() => sessions.id),
+      .references(() => sessions.id, { onDelete: 'cascade' }),
     stats: text('stats', { mode: 'json' })
       .$type<Record<string, unknown>>()
       .notNull(),
@@ -156,7 +156,7 @@ export const combats = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     sessionId: integer('session_id')
       .notNull()
-      .references(() => sessions.id),
+      .references(() => sessions.id, { onDelete: 'cascade' }),
     enemyName: text('enemy_name').notNull(),
     enemyStats: text('enemy_stats', { mode: 'json' })
       .$type<Record<string, unknown>>()
@@ -186,7 +186,7 @@ export const combatRounds = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     combatId: integer('combat_id')
       .notNull()
-      .references(() => combats.id),
+      .references(() => combats.id, { onDelete: 'cascade' }),
     roundNumber: integer('round_number').notNull(),
     detail: text('detail', { mode: 'json' })
       .$type<Record<string, unknown>>()
@@ -206,7 +206,7 @@ export const sectionVisits = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     sessionId: integer('session_id')
       .notNull()
-      .references(() => sessions.id),
+      .references(() => sessions.id, { onDelete: 'cascade' }),
     sectionNumber: integer('section_number').notNull(),
     visitedAt: integer('visited_at', { mode: 'timestamp' })
       .notNull()
@@ -221,7 +221,7 @@ export const inventoryItems = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     sessionId: integer('session_id')
       .notNull()
-      .references(() => sessions.id),
+      .references(() => sessions.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     quantity: integer('quantity').notNull().default(1),
     isSpecial: integer('is_special', { mode: 'boolean' }).notNull().default(false),
@@ -242,7 +242,7 @@ export const sessionSpells = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     sessionId: integer('session_id')
       .notNull()
-      .references(() => sessions.id),
+      .references(() => sessions.id, { onDelete: 'cascade' }),
     spellId: text('spell_id').notNull(),
     usesRemaining: integer('uses_remaining').notNull(),
   },

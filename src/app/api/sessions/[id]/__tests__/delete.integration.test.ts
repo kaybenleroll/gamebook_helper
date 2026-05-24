@@ -61,7 +61,7 @@ const { testDb } = vi.hoisted(() => {
       initial_stats TEXT NOT NULL,
       creation_rolls TEXT DEFAULT 'null',
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS maps (
       id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -108,7 +108,7 @@ const { testDb } = vi.hoisted(() => {
       outcome TEXT NOT NULL DEFAULT 'in_progress',
       started_at INTEGER NOT NULL DEFAULT (unixepoch()),
       ended_at INTEGER,
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
     CREATE UNIQUE INDEX IF NOT EXISTS combats_active_session_uniq
       ON combats(session_id) WHERE outcome = 'in_progress';
@@ -120,14 +120,14 @@ const { testDb } = vi.hoisted(() => {
       damage_dealt INTEGER NOT NULL,
       damage_taken INTEGER NOT NULL,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (combat_id) REFERENCES combats(id)
+      FOREIGN KEY (combat_id) REFERENCES combats(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS section_visits (
       id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
       session_id INTEGER NOT NULL,
       section_number INTEGER NOT NULL,
       visited_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -140,14 +140,14 @@ const { testDb } = vi.hoisted(() => {
       heal_amount INTEGER,
       heal_dice TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
     CREATE TABLE IF NOT EXISTS session_spells (
       id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
       session_id INTEGER NOT NULL,
       spell_id TEXT NOT NULL,
       uses_remaining INTEGER NOT NULL,
-      FOREIGN KEY (session_id) REFERENCES sessions(id)
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
     );
   `)
 
