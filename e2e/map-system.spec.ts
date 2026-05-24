@@ -5,13 +5,8 @@ const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://gamebook-app:3000'
 // Run all scenarios serially to avoid concurrent SQLite writes from parallel workers.
 test.describe.configure({ mode: 'serial' })
 
-// Use the seeded session (lowest ID) to avoid races with other spec files that
-// create and delete their own sessions concurrently.
-async function getSeededSessionId(request: APIRequestContext): Promise<number> {
-  const res = await request.get(`${BASE}/api/sessions`)
-  const sessions: Array<{ id: number }> = await res.json()
-  return sessions.reduce((min, s) => (s.id < min ? s.id : min), sessions[0].id)
-}
+// Module-level session created in beforeAll, deleted in afterAll.
+let sessionId: number
 
 // Dismiss the CreationRolls modal if it appears — it blocks pointer events on the canvas.
 async function dismissCreationModal(page: Page): Promise<void> {
@@ -20,16 +15,28 @@ async function dismissCreationModal(page: Page): Promise<void> {
   if (visible) await gotIt.click()
 }
 
+// Create a dedicated [test]-prefixed session for the entire spec file.
+test.beforeAll(async ({ request }: { request: APIRequestContext }) => {
+  const sessRes = await request.post(`${BASE}/api/sessions`, {
+    data: { gameSystemId: 'grail-quest', bookTitle: '[test] Map System' },
+  })
+  expect(sessRes.status()).toBe(201)
+  const { sessionId: sid } = await sessRes.json()
+  sessionId = sid
+})
+
+// Delete the session after all scenarios complete.
+test.afterAll(async ({ request }: { request: APIRequestContext }) => {
+  if (sessionId) {
+    await request.delete(`${BASE}/api/sessions/${sessionId}`)
+  }
+})
+
 // ---------------------------------------------------------------------------
 // Scenario 1: Create a map → tab appears
 // ---------------------------------------------------------------------------
 test.describe('Scenario 1: Create map → tab visible', () => {
-  let sessionId: number
   let mapId: number
-
-  test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-  })
 
   test.afterAll(async ({ request }) => {
     if (mapId) {
@@ -59,8 +66,6 @@ test.describe('Scenario 1: Create map → tab visible', () => {
 // ---------------------------------------------------------------------------
 test.describe('Scenario 2: Add first node → circle on canvas', () => {
   test('node circle renders on canvas', async ({ page, request }) => {
-    const sessionId = await getSeededSessionId(request)
-
     const mapRes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Scenario 2' },
     })
@@ -110,14 +115,11 @@ test.describe('Scenario 2: Add first node → circle on canvas', () => {
 // Scenario 3: Add connected node via direction → edge appears
 // ---------------------------------------------------------------------------
 test.describe('Scenario 3: Add connected node → edge appears', () => {
-  let sessionId: number
   let mapId: number
   let nodeAId: number
   let nodeBId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapRes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Scenario 3' },
     })
@@ -168,14 +170,11 @@ test.describe('Scenario 3: Add connected node → edge appears', () => {
 // Scenario 4: Drag node → snaps to grid, edges follow
 // ---------------------------------------------------------------------------
 test.describe('Scenario 4: Drag node → snaps to 20px grid', () => {
-  let sessionId: number
   let mapId: number
   let nodeAId: number
   let nodeBId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapRes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Scenario 4' },
     })
@@ -244,13 +243,10 @@ test.describe('Scenario 4: Drag node → snaps to 20px grid', () => {
 // Scenario 5: Edit node detail panel → sectionNumber persisted
 // ---------------------------------------------------------------------------
 test.describe('Scenario 5: Edit node detail panel → persists via API', () => {
-  let sessionId: number
   let mapId: number
   let nodeId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapRes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Scenario 5' },
     })
@@ -307,14 +303,11 @@ test.describe('Scenario 5: Edit node detail panel → persists via API', () => {
 // Scenario 6: Create edge → styled, panel shows connectionType
 // ---------------------------------------------------------------------------
 test.describe('Scenario 6: Edge creation → styled and detail panel', () => {
-  let sessionId: number
   let mapId: number
   let nodeAId: number
   let nodeBId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapRes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Scenario 6' },
     })
@@ -382,15 +375,12 @@ test.describe('Scenario 6: Edge creation → styled and detail panel', () => {
 // Scenario 7: Cross-map edge → dashed purple, navigates on click
 // ---------------------------------------------------------------------------
 test.describe('Scenario 7: Cross-map edge → purple, click navigates', () => {
-  let sessionId: number
   let mapAId: number
   let mapBId: number
   let nodeAId: number
   let nodeProxyId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapARes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 CrossMap A' },
     })
@@ -459,13 +449,10 @@ test.describe('Scenario 7: Cross-map edge → purple, click navigates', () => {
 // Scenario 8: Switch map tabs → canvas updates
 // ---------------------------------------------------------------------------
 test.describe('Scenario 8: Switch map tabs → canvas updates', () => {
-  let sessionId: number
   let mapAId: number
   let mapBId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapARes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Tab A' },
     })
@@ -528,14 +515,11 @@ test.describe('Scenario 8: Switch map tabs → canvas updates', () => {
 // Scenario 9: Delete node → edges cascade deleted
 // ---------------------------------------------------------------------------
 test.describe('Scenario 9: Delete node → edges cascade deleted', () => {
-  let sessionId: number
   let mapId: number
   let nodeAId: number
   let nodeBId: number
 
   test.beforeAll(async ({ request }) => {
-    sessionId = await getSeededSessionId(request)
-
     const mapRes = await request.post(`${BASE}/api/sessions/${sessionId}/maps`, {
       data: { name: 'Slice9 Scenario 9' },
     })
