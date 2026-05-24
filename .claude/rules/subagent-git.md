@@ -17,6 +17,7 @@ triggers:
 - **Merge method: squash** — always pass `--squash` to `gh pr merge` or `merge_method: "squash"` via API
 - **Never `--delete-branch`** when merging — remote branches are preserved intentionally
 - **Never commit directly to main** — all work goes on a feature branch
+- **Push all commits to remote before squash-merging** — local-only commits are silently lost
 
 ## Before Creating Any GitHub Issue
 

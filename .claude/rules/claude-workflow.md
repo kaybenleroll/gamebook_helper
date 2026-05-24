@@ -30,6 +30,7 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 - After parallel subagent merges, pull main and verify integrated state before dispatching the next round.
 - Confirm the previous PR is merged and working directory is clean on main before starting the next task.
 - Before creating a bug issue, check if an open PR already covers that code area — fold the fix into that branch instead.
+- Verify working-directory state after subagent branch operations — branch switches affect the running dev server.
 
 ## GitHub and Just
 

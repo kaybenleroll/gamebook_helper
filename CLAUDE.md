@@ -46,6 +46,10 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
 - Install npm packages inside the container: `podman exec gamebook-app npm install <pkg>`. When removing, edit `package.json` directly — `npm uninstall` only removes from the container's `node_modules`, not the mounted source file.
 - Backwards compatibility is never a blocker — break it when architecture or design is better
 - `.scratch/` is gitignored — stage experimental files there until patterns stabilise, then promote; never commit from it
+- Tailwind `@theme` silently drops CSS custom properties using `var()` — use raw values inside `@theme` blocks
+- Next.js 15 + pino routes must declare `export const runtime = 'nodejs'` — Edge runtime is incompatible
+- E2E test sessions must use the `[test]` name prefix for global-teardown cleanup
+- SSR caches game-system module state at page load — new fields need a hard browser refresh
 
 ## Behavioural Rules
 
