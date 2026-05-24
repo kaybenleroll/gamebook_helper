@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fightingFantasy } from '../fighting-fantasy'
 import { gameSystemRegistry } from '../registry'
 import '../fighting-fantasy'
+import * as diceModule from '../../dice'
 
 describe('fightingFantasy system definition', () => {
   it('has the correct id and name', () => {
@@ -117,5 +118,87 @@ describe('fightingFantasy stat ceiling enforcement', () => {
     const { count, sides, modifier } = luck.initialDice!
     const maxRoll = count * sides + modifier
     expect(maxRoll).toBeLessThanOrEqual(luck.max!)
+  })
+})
+
+describe('fightingFantasy testLuck', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let rollDiceSpy: any
+
+  beforeEach(() => {
+    rollDiceSpy = vi.spyOn(diceModule, 'rollDice')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('is defined on the fightingFantasy system', () => {
+    expect(typeof fightingFantasy.testLuck).toBe('function')
+  })
+
+  it('succeeds when roll is less than or equal to current LUCK', () => {
+    // Luck = 8, roll = 7 → success
+    rollDiceSpy.mockReturnValue([3, 4])
+    const stats = { skill: 10, stamina: 18, luck: 8 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(result.roll).toBe(7)
+    expect(result.success).toBe(true)
+  })
+
+  it('succeeds when roll exactly equals current LUCK', () => {
+    // Luck = 7, roll = 7 → success (equal counts as success)
+    rollDiceSpy.mockReturnValue([3, 4])
+    const stats = { skill: 10, stamina: 18, luck: 7 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(result.roll).toBe(7)
+    expect(result.success).toBe(true)
+  })
+
+  it('fails when roll is greater than current LUCK', () => {
+    // Luck = 6, roll = 9 → failure
+    rollDiceSpy.mockReturnValue([4, 5])
+    const stats = { skill: 10, stamina: 18, luck: 6 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(result.roll).toBe(9)
+    expect(result.success).toBe(false)
+  })
+
+  it('decrements LUCK by 1 on success', () => {
+    // Luck = 8, roll = 5 → success, newLuck should be 7
+    rollDiceSpy.mockReturnValue([2, 3])
+    const stats = { skill: 10, stamina: 18, luck: 8 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(result.newLuck).toBe(7)
+  })
+
+  it('decrements LUCK by 1 on failure', () => {
+    // Luck = 6, roll = 11 → failure, newLuck should be 5
+    rollDiceSpy.mockReturnValue([5, 6])
+    const stats = { skill: 10, stamina: 18, luck: 6 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(result.newLuck).toBe(5)
+  })
+
+  it('blocks when LUCK is 0', () => {
+    const stats = { skill: 10, stamina: 18, luck: 0 }
+    expect(() => fightingFantasy.testLuck!(stats, stats)).toThrow()
+  })
+
+  it('LUCK cannot go below 0 — newLuck is 0 when starting from 1', () => {
+    // Luck = 1 — any roll succeeds or fails; newLuck must be 0, not negative
+    rollDiceSpy.mockReturnValue([1, 1])
+    const stats = { skill: 10, stamina: 18, luck: 1 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(result.newLuck).toBe(0)
+    expect(result.newLuck).toBeGreaterThanOrEqual(0)
+  })
+
+  it('returns a non-empty message string', () => {
+    rollDiceSpy.mockReturnValue([3, 3])
+    const stats = { skill: 10, stamina: 18, luck: 8 }
+    const result = fightingFantasy.testLuck!(stats, stats)
+    expect(typeof result.message).toBe('string')
+    expect(result.message.length).toBeGreaterThan(0)
   })
 })

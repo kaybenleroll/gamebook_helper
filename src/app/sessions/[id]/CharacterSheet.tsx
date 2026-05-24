@@ -140,6 +140,46 @@ export default function CharacterSheet({
   }
 
   const isGrailQuest = gameSystemId === 'grail-quest'
+  const isFightingFantasy = gameSystemId === 'fighting-fantasy'
+
+  // Test Your Luck state (Fighting Fantasy only)
+  const [luckTestResult, setLuckTestResult] = useState<{
+    roll: number
+    success: boolean
+    newLuck: number
+    message: string
+  } | null>(null)
+  const [luckTestLoading, setLuckTestLoading] = useState(false)
+
+  async function handleTestLuck() {
+    setLuckTestLoading(true)
+    setLuckTestResult(null)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/actions/test-luck`, {
+        method: 'POST',
+      })
+      if (res.ok) {
+        const data = (await res.json()) as {
+          roll: number
+          success: boolean
+          newLuck: number
+          message: string
+          stats: Record<string, unknown>
+          initialStats: Record<string, unknown>
+        }
+        setLuckTestResult({ roll: data.roll, success: data.success, newLuck: data.newLuck, message: data.message })
+        setCurrentStats(data.stats)
+        onStatsChange?.(data.stats, data.initialStats)
+      } else {
+        const err = (await res.json()) as { error?: string }
+        setLuckTestResult(null)
+        // Surface a minimal inline error using the message field
+        setLuckTestResult({ roll: 0, success: false, newLuck: 0, message: err.error ?? 'Test Your Luck failed.' })
+      }
+    } finally {
+      setLuckTestLoading(false)
+    }
+  }
 
   return (
     <section>
@@ -376,6 +416,41 @@ export default function CharacterSheet({
           </div>
         </div>
       )}
+      {isFightingFantasy && (() => {
+        const currentLuck =
+          typeof currentStats['luck'] === 'number' ? (currentStats['luck'] as number) : 0
+        const luckDepleted = currentLuck <= 0
+        return (
+          <div className="mt-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleTestLuck}
+                disabled={isGameOver || luckDepleted || luckTestLoading}
+                className="px-4 py-1.5 text-sm border rounded font-medium disabled:opacity-40"
+                aria-label="Test Your Luck"
+              >
+                {luckTestLoading ? 'Testing…' : 'Test Your Luck'}
+              </button>
+              {luckDepleted && (
+                <span className="text-xs text-text-muted">Luck is 0 — cannot test</span>
+              )}
+            </div>
+            {luckTestResult && (
+              <div
+                className={`mt-2 px-3 py-2 rounded text-sm border ${
+                  luckTestResult.success
+                    ? 'border-green-400 bg-green-50 text-green-800'
+                    : 'border-red-400 bg-red-50 text-red-800'
+                }`}
+                role="status"
+                aria-live="polite"
+              >
+                {luckTestResult.message}
+              </div>
+            )}
+          </div>
+        )
+      })()}
       {showGameOverModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4 text-center">
