@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../../lib/db'
 import { sessions, inventoryItems } from '../../../../../../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import logger from '../../../../../../lib/logger'
+
+const PatchInventoryItemSchema = z.object({
+  name: z.string().min(1).optional(),
+  quantity: z.number().int().min(1).optional(),
+  isSpecial: z.boolean().optional(),
+  itemType: z.string().min(1).optional(),
+  doseCount: z.number().int().min(0).optional(),
+}).refine(
+  (data) =>
+    data.name !== undefined ||
+    data.quantity !== undefined ||
+    data.isSpecial !== undefined ||
+    data.itemType !== undefined ||
+    data.doseCount !== undefined,
+  { message: 'At least one field (name, quantity, isSpecial, itemType, doseCount) must be provided' },
+)
 
 function formatItem(item: typeof inventoryItems.$inferSelect) {
   return {
@@ -52,57 +69,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    const body = (await request.json()) as {
-      name?: unknown
-      quantity?: unknown
-      isSpecial?: unknown
-      itemType?: unknown
-      doseCount?: unknown
-    }
-
-    const { name, quantity, isSpecial, itemType, doseCount } = body
-
-    if (name !== undefined && (typeof name !== 'string' || name.trim() === '')) {
+    const parseResult = PatchInventoryItemSchema.safeParse(await request.json())
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'name must be a non-empty string' },
+        { error: 'Invalid request body', details: parseResult.error.issues },
         { status: 400 },
       )
     }
-
-    if (quantity !== undefined && (typeof quantity !== 'number' || !Number.isInteger(quantity) || quantity < 1)) {
-      return NextResponse.json(
-        { error: 'quantity must be a positive integer' },
-        { status: 400 },
-      )
-    }
-
-    if (isSpecial !== undefined && typeof isSpecial !== 'boolean') {
-      return NextResponse.json(
-        { error: 'isSpecial must be a boolean' },
-        { status: 400 },
-      )
-    }
-
-    if (itemType !== undefined && (typeof itemType !== 'string' || itemType.trim() === '')) {
-      return NextResponse.json(
-        { error: 'itemType must be a non-empty string' },
-        { status: 400 },
-      )
-    }
-
-    if (doseCount !== undefined && (typeof doseCount !== 'number' || !Number.isInteger(doseCount) || doseCount < 0)) {
-      return NextResponse.json(
-        { error: 'doseCount must be a non-negative integer' },
-        { status: 400 },
-      )
-    }
-
-    if (name === undefined && quantity === undefined && isSpecial === undefined && itemType === undefined && doseCount === undefined) {
-      return NextResponse.json(
-        { error: 'At least one field (name, quantity, isSpecial, itemType, doseCount) must be provided' },
-        { status: 400 },
-      )
-    }
+    const { name, quantity, isSpecial, itemType, doseCount } = parseResult.data
 
     if (doseCount === 0) {
       db.delete(inventoryItems)
@@ -112,11 +86,11 @@ export async function PATCH(
     }
 
     const updateFields: { name?: string; quantity?: number; isSpecial?: boolean; itemType?: string; doseCount?: number } = {}
-    if (name !== undefined) updateFields.name = (name as string).trim()
-    if (quantity !== undefined) updateFields.quantity = quantity as number
-    if (isSpecial !== undefined) updateFields.isSpecial = isSpecial as boolean
-    if (itemType !== undefined) updateFields.itemType = (itemType as string).trim()
-    if (doseCount !== undefined) updateFields.doseCount = doseCount as number
+    if (name !== undefined) updateFields.name = name.trim()
+    if (quantity !== undefined) updateFields.quantity = quantity
+    if (isSpecial !== undefined) updateFields.isSpecial = isSpecial
+    if (itemType !== undefined) updateFields.itemType = itemType.trim()
+    if (doseCount !== undefined) updateFields.doseCount = doseCount
 
     db.update(inventoryItems)
       .set(updateFields)

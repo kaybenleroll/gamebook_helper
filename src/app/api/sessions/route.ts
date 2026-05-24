@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { desc } from 'drizzle-orm'
 import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
@@ -8,17 +9,21 @@ import type { CreationRolls, SessionMetadata } from '../../../lib/db/schema'
 import { rollDice } from '../../../lib/dice'
 import logger from '../../../lib/logger'
 
+const CreateSessionSchema = z.object({
+  gameSystemId: z.string().min(1),
+  bookTitle: z.string().min(1),
+})
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json() as { gameSystemId?: unknown; bookTitle?: unknown }
-    const { gameSystemId, bookTitle } = body
-
-    if (!gameSystemId || !bookTitle || typeof gameSystemId !== 'string' || typeof bookTitle !== 'string') {
+    const parseResult = CreateSessionSchema.safeParse(await request.json())
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'gameSystemId and bookTitle are required' },
+        { error: 'Invalid request body', details: parseResult.error.issues },
         { status: 400 },
       )
     }
+    const { gameSystemId, bookTitle } = parseResult.data
 
     let gameSystem
     try {

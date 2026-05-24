@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../lib/db'
 import { sessions, sectionVisits } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
 import logger from '../../../../../lib/logger'
+
+const PostSectionSchema = z.object({
+  sectionNumber: z.number().int().min(1),
+})
 
 export async function GET(
   _request: NextRequest,
@@ -54,11 +59,14 @@ export async function POST(
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
     if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
-    const body = await request.json() as { sectionNumber?: unknown }
-    const { sectionNumber } = body
-    if (typeof sectionNumber !== 'number' || !Number.isInteger(sectionNumber) || sectionNumber < 1) {
-      return NextResponse.json({ error: 'sectionNumber must be a positive integer' }, { status: 400 })
+    const parseResult = PostSectionSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
     }
+    const { sectionNumber } = parseResult.data
 
     db.insert(sectionVisits).values({ sessionId, sectionNumber }).run()
 

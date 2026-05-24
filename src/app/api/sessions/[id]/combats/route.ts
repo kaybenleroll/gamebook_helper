@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../lib/db'
 import { characters, combats, combatRounds } from '../../../../../lib/db/schema'
 import { eq, desc, asc } from 'drizzle-orm'
 import { resolveSession } from '../../../../../lib/api/withSession'
 import { formatCombat } from '../../../../../lib/combat-utils'
 import logger from '../../../../../lib/logger'
+
+// The enemy stats shape is game-system-defined; the only globally required
+// field that belongs in the API layer is that the body is an object.
+// Game-system-level validation happens via gameSystem.combat.validateEnemyStats().
+const StartCombatSchema = z.record(z.string(), z.unknown())
 
 export async function GET(
   _request: NextRequest,
@@ -70,22 +76,28 @@ export async function POST(
       )
     }
 
-    const body = (await request.json()) as unknown
+    const parseResult = StartCombatSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
+    }
+    const bodyRecord = parseResult.data
 
-    // Validate enemy stats
-    const validationErrors = gameSystem.combat.validateEnemyStats(body)
+    // Validate enemy stats via game-system-specific rules
+    const validationErrors = gameSystem.combat.validateEnemyStats(bodyRecord)
     if (validationErrors.length > 0) {
       return NextResponse.json({ error: 'Invalid enemy stats', details: validationErrors }, { status: 400 })
     }
 
-    const bodyRecord = body as Record<string, unknown>
     const initiativeModeRaw = bodyRecord['initiativeMode']
     const initiativeOverride: 'player' | 'enemy' | undefined =
       initiativeModeRaw === 'player' ? 'player'
       : initiativeModeRaw === 'enemy' ? 'enemy'
       : undefined
 
-    const { enemyState, metadata, startNarrative } = gameSystem.combat.start(body, { initiativeOverride })
+    const { enemyState, metadata, startNarrative } = gameSystem.combat.start(bodyRecord, { initiativeOverride })
 
     const metadataWithNarrative: Record<string, unknown> = {
       ...(metadata as Record<string, unknown>),

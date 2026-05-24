@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { db } from '../../../../../../lib/db'
 import { characters, inventoryItems } from '../../../../../../lib/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { resolveSession } from '../../../../../../lib/api/withSession'
 import logger from '../../../../../../lib/logger'
+
+const EatMealSchema = z.object({
+  itemId: z.union([z.number().int(), z.string()]),
+})
 
 export async function POST(
   request: NextRequest,
@@ -17,8 +22,15 @@ export async function POST(
     const { session, character, gameSystem } = ctx
     const sessionId = session.id
 
-    const body = (await request.json()) as { itemId?: unknown }
-    const itemId = typeof body.itemId === 'number' ? body.itemId : parseInt(String(body.itemId ?? ''), 10)
+    const parseResult = EatMealSchema.safeParse(await request.json())
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid request body', details: parseResult.error.issues },
+        { status: 400 },
+      )
+    }
+    const rawItemId = parseResult.data.itemId
+    const itemId = typeof rawItemId === 'number' ? rawItemId : parseInt(String(rawItemId), 10)
     if (isNaN(itemId)) {
       return NextResponse.json({ error: 'itemId is required' }, { status: 400 })
     }
