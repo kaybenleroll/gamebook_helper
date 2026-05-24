@@ -17,6 +17,7 @@ triggers:
 - **Merge method: squash** — always pass `--squash` to `gh pr merge` or `merge_method: "squash"` via API
 - **Never `--delete-branch`** when merging — remote branches are preserved intentionally
 - **Never commit directly to main** — all work goes on a feature branch
+- **Push all commits to remote before squash-merging** — local-only commits are silently lost
 
 ## Before Creating Any GitHub Issue
 
@@ -41,14 +42,12 @@ Every issue requires: 1 Priority + 1 Type + 1+ Area + 1 Effort.
 
 ## Writing Effective Issue Bodies
 
-An issue body is the contract a subagent works from. Write it so it stays useful as the codebase changes.
+Issue bodies are the contract a subagent works from; write for durability.
 
-**Four principles:**
-
-1. **Durability over precision** — describe interfaces, types, and behavioral contracts. Never reference file paths or line numbers — they go stale before the issue is picked up.
-2. **Behavioral not procedural** — describe what the system should do, not how to implement it. Good: "When X happens, Y should occur." Bad: "Open file Z and add a switch statement."
-3. **Complete acceptance criteria** — every issue needs concrete, independently testable criteria. Bad: "Triage should work correctly." Good: "Running `gh issue list --label needs-triage` returns only issues that have been classified."
-4. **Explicit scope boundaries** — state what is out of scope to prevent gold-plating or scope creep.
+- **Durability** — describe interfaces and contracts; no file paths or line numbers — they go stale
+- **Behavioural** — describe what the system should do, not how to implement it
+- **Acceptance criteria** — concrete and independently testable, not "X should work correctly"
+- **Scope boundaries** — state what is out of scope to prevent gold-plating
 
 **Template:**
 
