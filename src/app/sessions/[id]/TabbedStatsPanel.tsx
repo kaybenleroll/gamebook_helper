@@ -36,6 +36,12 @@ interface Props {
   gameSystemId: string
   isGameOver: boolean
   primaryHealthStat: string
+  hasEquipment: boolean
+  hasTestLuck: boolean
+  hasGold: boolean
+  hasCodewords: boolean
+  backpackLimit?: number
+  experienceStatKey?: string
   creationRolls: CreationRolls | null
   onStatsChange: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
   // InventoryPanel props
@@ -62,6 +68,12 @@ export default function TabbedStatsPanel({
   gameSystemId,
   isGameOver,
   primaryHealthStat,
+  hasEquipment,
+  hasTestLuck,
+  hasGold,
+  hasCodewords,
+  backpackLimit,
+  experienceStatKey,
   creationRolls: initialCreationRolls,
   onStatsChange,
   initialItems,
@@ -110,6 +122,11 @@ export default function TabbedStatsPanel({
             gameSystemId={gameSystemId}
             isGameOver={isGameOver}
             primaryHealthStat={primaryHealthStat}
+            hasEquipment={hasEquipment}
+            hasTestLuck={hasTestLuck}
+            hasGold={hasGold}
+            hasCodewords={hasCodewords}
+            experienceStatKey={experienceStatKey}
             creationRolls={creationRolls}
             onCreationRollsDismiss={() => setCreationRolls(null)}
             onStatsChange={onStatsChange}
@@ -122,6 +139,7 @@ export default function TabbedStatsPanel({
             sessionId={sessionId}
             gameSystemId={gameSystemId}
             initialItems={initialItems}
+            backpackLimit={backpackLimit}
             onStatsChange={onStatsChange}
           />
         )}

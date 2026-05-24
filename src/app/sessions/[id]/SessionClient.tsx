@@ -13,6 +13,11 @@ interface Props {
   gameSystemId: string
   isGameOver: boolean
   primaryHealthStat: string
+  hasEquipment: boolean
+  hasTestLuck: boolean
+  hasGold: boolean
+  hasCodewords: boolean
+  experienceStatKey?: string
   creationRolls: CreationRolls | null
   onCreationRollsDismiss: () => void
   onStatsChange: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
@@ -35,6 +40,11 @@ export default function SessionClient({
   gameSystemId,
   isGameOver,
   primaryHealthStat,
+  hasEquipment,
+  hasTestLuck,
+  hasGold,
+  hasCodewords,
+  experienceStatKey,
   creationRolls,
   onCreationRollsDismiss,
   onStatsChange,
@@ -58,6 +68,11 @@ export default function SessionClient({
         gameSystemId={gameSystemId}
         primaryHealthStat={primaryHealthStat}
         isGameOver={isGameOver}
+        hasEquipment={hasEquipment}
+        hasTestLuck={hasTestLuck}
+        hasGold={hasGold}
+        hasCodewords={hasCodewords}
+        experienceStatKey={experienceStatKey}
         onStatsChange={onStatsChange}
         metadata={metadata}
         onMetadataChange={onMetadataChange}

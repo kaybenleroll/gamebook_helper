@@ -3,8 +3,6 @@
 import { useState, useCallback } from 'react'
 import InventoryTsvImport from './InventoryTsvImport'
 
-const FF_BACKPACK_LIMIT = 10
-
 interface InventoryItem {
   id: number
   sessionId: number
@@ -29,10 +27,12 @@ interface Props {
   sessionId: number
   gameSystemId: string
   initialItems: InventoryItem[]
+  /** Maximum non-special backpack slots. Undefined means no limit is displayed. */
+  backpackLimit?: number
   onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
 }
 
-export default function InventoryPanel({ sessionId, gameSystemId, initialItems, onStatsChange }: Props) {
+export default function InventoryPanel({ sessionId, gameSystemId, initialItems, backpackLimit, onStatsChange }: Props) {
   const [items, setItems] = useState<InventoryItem[]>(initialItems)
   const [nameInput, setNameInput] = useState('')
 
@@ -46,9 +46,8 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems, 
   const [editingItemId, setEditingItemId] = useState<number | null>(null)
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
 
-  const isFightingFantasy = gameSystemId === 'fighting-fantasy'
-
-  const backpackCount = isFightingFantasy
+  const hasBackpackLimit = backpackLimit !== undefined
+  const backpackCount = hasBackpackLimit
     ? items.filter((item) => !item.isSpecial).reduce((sum, item) => sum + item.quantity, 0)
     : 0
 
@@ -212,14 +211,14 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems, 
     <section>
       <h2 className="font-heading text-lg text-header-accent border-l-4 border-header-accent pl-3 mb-3">Inventory</h2>
 
-      {isFightingFantasy && (
+      {hasBackpackLimit && backpackLimit !== undefined && (
         <p className="text-sm text-gray-600 mb-3">
           Backpack:{' '}
-          <span className={backpackCount > FF_BACKPACK_LIMIT ? 'text-red-600 font-semibold' : ''}>
-            {backpackCount} / {FF_BACKPACK_LIMIT}
+          <span className={backpackCount > backpackLimit ? 'text-red-600 font-semibold' : ''}>
+            {backpackCount} / {backpackLimit}
           </span>{' '}
           slots used
-          {backpackCount > FF_BACKPACK_LIMIT && (
+          {backpackCount > backpackLimit && (
             <span className="ml-2 text-red-600">(over limit!)</span>
           )}
         </p>
@@ -233,7 +232,7 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems, 
             <tr className="text-left border-b">
               <th className="py-2 pr-4 font-medium">Item</th>
               <th className="py-2 pr-4 font-medium text-center">Qty</th>
-              {isFightingFantasy && (
+              {hasBackpackLimit && (
                 <th className="py-2 pr-4 font-medium text-center">Special</th>
               )}
               <th className="py-2 font-medium" />
@@ -273,7 +272,7 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems, 
                       aria-label="Item quantity"
                     />
                   </td>
-                  {isFightingFantasy && (
+                  {hasBackpackLimit && (
                     <td className="py-2 pr-4 text-center">
                       <input
                         type="checkbox"
@@ -365,7 +364,7 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems, 
                       </div>
                     )}
                   </td>
-                  {isFightingFantasy && (
+                  {hasBackpackLimit && (
                     <td className="py-2 pr-4 text-center text-sm text-gray-500">
                       {item.isSpecial ? 'Yes' : '—'}
                     </td>
@@ -406,7 +405,7 @@ export default function InventoryPanel({ sessionId, gameSystemId, initialItems, 
           className="border rounded px-2 py-1 text-sm w-16 font-mono"
           aria-label="New item quantity"
         />
-        {isFightingFantasy && (
+        {hasBackpackLimit && (
           <label className="flex items-center gap-1 text-sm cursor-pointer">
             <input
               type="checkbox"

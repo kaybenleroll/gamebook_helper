@@ -17,6 +17,11 @@ interface Props {
   gameSystemId: string
   primaryHealthStat: string
   isGameOver?: boolean
+  hasEquipment?: boolean
+  hasTestLuck?: boolean
+  hasGold?: boolean
+  hasCodewords?: boolean
+  experienceStatKey?: string
   metadata?: Record<string, unknown>
   onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
   onMetadataChange?: (metadata: Record<string, unknown>) => void
@@ -30,6 +35,11 @@ export default function CharacterSheet({
   gameSystemId,
   primaryHealthStat,
   isGameOver = false,
+  hasEquipment = false,
+  hasTestLuck = false,
+  hasGold = false,
+  hasCodewords = false,
+  experienceStatKey,
   metadata: initialMetadata,
   onStatsChange,
   onMetadataChange,
@@ -194,10 +204,7 @@ export default function CharacterSheet({
     void patchMetadata({ codewords: updated })
   }
 
-  const isGrailQuest = gameSystemId === 'grail-quest'
-  const isFightingFantasy = gameSystemId === 'fighting-fantasy'
-
-  // Test Your Luck state (Fighting Fantasy only)
+  // Test Your Luck state (systems with testLuck only)
   const [luckTestResult, setLuckTestResult] = useState<{
     roll: number
     success: boolean
@@ -364,7 +371,7 @@ export default function CharacterSheet({
                     )}
 
                     {/* XP threshold text */}
-                    {isGrailQuest && stat.key === 'experiencePoints' && (
+                    {experienceStatKey !== undefined && stat.key === experienceStatKey && (
                       <div className="text-xs text-gray-500 mt-0.5">
                         {(() => {
                           const { progress, threshold } = xpThresholdProgress(current)
@@ -412,7 +419,7 @@ export default function CharacterSheet({
         </tbody>
       </table>
 
-      {isGrailQuest && (
+      {hasEquipment && (
         <div className="mt-4 w-full space-y-3">
           {/* Equipped weapon */}
           <div className="flex items-center gap-2">
@@ -471,7 +478,7 @@ export default function CharacterSheet({
           </div>
         </div>
       )}
-      {isFightingFantasy && (() => {
+      {hasTestLuck && (() => {
         const currentLuck =
           typeof currentStats['luck'] === 'number' ? (currentStats['luck'] as number) : 0
         const luckDepleted = currentLuck <= 0
@@ -506,71 +513,77 @@ export default function CharacterSheet({
           </div>
         )
       })()}
-      {isFightingFantasy && (
+      {(hasGold || hasCodewords) && (
         <div className="mt-4 space-y-4">
           {/* Gold Pieces counter */}
-          <div>
-            <h3 className="font-body text-text-muted font-medium text-sm mb-1">Gold Pieces</h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleGoldChange(-1)}
-                disabled={gold <= 0}
-                className="w-7 h-7 rounded border font-bold disabled:opacity-40"
-                aria-label="Decrease gold by 1"
-              >
-                −
-              </button>
-              <span className="font-mono text-accent-blue w-10 text-center text-lg" aria-label={`Gold: ${gold}`}>
-                {gold}
-              </span>
-              <button
-                onClick={() => handleGoldChange(+1)}
-                className="w-7 h-7 rounded border font-bold"
-                aria-label="Increase gold by 1"
-              >
-                +
-              </button>
+          {hasGold && (
+            <div>
+              <h3 className="font-body text-text-muted font-medium text-sm mb-1">Gold Pieces</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleGoldChange(-1)}
+                  disabled={gold <= 0}
+                  className="w-7 h-7 rounded border font-bold disabled:opacity-40"
+                  aria-label="Decrease gold by 1"
+                >
+                  −
+                </button>
+                <span className="font-mono text-accent-blue w-10 text-center text-lg" aria-label={`Gold: ${gold}`}>
+                  {gold}
+                </span>
+                <button
+                  onClick={() => handleGoldChange(+1)}
+                  className="w-7 h-7 rounded border font-bold"
+                  aria-label="Increase gold by 1"
+                >
+                  +
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Codewords checklist */}
-          <div>
-            <h3 className="font-body text-text-muted font-medium text-sm mb-1">Codewords</h3>
-            {codewords.length > 0 && (
-              <ul className="mb-2 space-y-1">
-                {codewords.map((word) => (
-                  <li key={word} className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{word}</span>
-                    <button
-                      onClick={() => handleRemoveCodeword(word)}
-                      className="text-text-muted hover:text-red-600 text-xs px-1"
-                      aria-label={`Remove codeword ${word}`}
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newCodeword}
-                onChange={(e) => setNewCodeword(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAddCodeword() }}
-                placeholder="New codeword"
-                className="border rounded px-2 py-1 text-sm flex-1 min-w-0"
-                aria-label="New codeword"
-              />
-              <button
-                onClick={handleAddCodeword}
-                disabled={!newCodeword.trim()}
-                className="px-3 py-1 text-sm border rounded disabled:opacity-40"
-              >
-                Add
-              </button>
+          {hasCodewords && (
+            <div>
+              <h3 className="font-body text-text-muted font-medium text-sm mb-1">Codewords</h3>
+              {codewords.length > 0 && (
+                <ul className="mb-2 space-y-1">
+                  {codewords.map((word) => (
+                    <li key={word} className="flex items-center gap-2">
+                      <span className="font-mono text-sm">{word}</span>
+                      <button
+                        onClick={() => handleRemoveCodeword(word)}
+                        className="text-text-muted hover:text-red-600 text-xs px-1"
+                        aria-label={`Remove codeword ${word}`}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newCodeword}
+                  onChange={(e) => setNewCodeword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddCodeword()
+                  }}
+                  placeholder="New codeword"
+                  className="border rounded px-2 py-1 text-sm flex-1 min-w-0"
+                  aria-label="New codeword"
+                />
+                <button
+                  onClick={handleAddCodeword}
+                  disabled={!newCodeword.trim()}
+                  className="px-3 py-1 text-sm border rounded disabled:opacity-40"
+                >
+                  Add
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
       {showGameOverModal && (
