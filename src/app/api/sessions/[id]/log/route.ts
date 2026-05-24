@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import '../../../../../lib/game-systems/index'
-import { gameSystemRegistry } from '../../../../../lib/game-systems/registry'
 import { db } from '../../../../../lib/db'
-import { sessions, sectionVisits, combats, combatRounds } from '../../../../../lib/db/schema'
+import { sectionVisits, combats, combatRounds } from '../../../../../lib/db/schema'
 import { eq, asc } from 'drizzle-orm'
+import { resolveSession } from '../../../../../lib/api/withSession'
 import logger from '../../../../../lib/logger'
 
 export type SectionVisitEvent = {
@@ -34,22 +33,11 @@ export async function GET(
 ): Promise<NextResponse> {
   try {
     const { id } = await params
-    const sessionId = parseInt(id, 10)
-    if (isNaN(sessionId)) {
-      return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
-    }
 
-    const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-    }
-
-    let gameSystem
-    try {
-      gameSystem = gameSystemRegistry.get(session.gameSystemId)
-    } catch {
-      return NextResponse.json({ error: 'Unknown game system' }, { status: 500 })
-    }
+    const ctx = await resolveSession(id)
+    if (ctx instanceof NextResponse) return ctx
+    const { session, gameSystem } = ctx
+    const sessionId = session.id
 
     const primaryEnemyHealthStat = gameSystem.combat?.primaryEnemyHealthStat
 
