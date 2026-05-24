@@ -33,8 +33,8 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
 
 ## Architecture
 
-- **Stack**: Next.js app + Postgres
-- **Containers**: `gamebook-app` (app) + `gamebook-db` (database) — edit code on the host, run it in containers
+- **Stack**: Next.js app + SQLite (via Drizzle ORM)
+- **Containers**: `gamebook-app` (app only) — SQLite runs embedded; DB file persisted to `gamebook_db` named volume. Edit code on the host, run it in containers.
 - **Game systems**: Fighting Fantasy, Grail Quest — the data model is system-aware; stats, dice mechanics, and combat rules differ per system. Never hardcode stat sets, dice mechanics, or combat rules for a single system.
 - **Auth**: No auth for now — design with auth-ready patterns throughout: middleware stub, user-scoped data shapes
 
