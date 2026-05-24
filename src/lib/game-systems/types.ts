@@ -113,4 +113,17 @@ export interface GameSystem {
     characterStats: unknown,
     initialStats: unknown,
   ): { statDeltas: Record<string, number>; message: string }
+
+  /**
+   * Optional Test Your Luck mechanic. Rolls 2d6 against the character's
+   * current Luck stat. Luck decrements by 1 regardless of outcome.
+   * Returns the roll, whether it was a success, the new Luck value, and a
+   * human-readable message.
+   * Throws an error if the current Luck is 0.
+   * Systems that do not have a Luck mechanic may omit this.
+   */
+  testLuck?(
+    characterStats: unknown,
+    initialStats: unknown,
+  ): { roll: number; success: boolean; newLuck: number; message: string }
 }
