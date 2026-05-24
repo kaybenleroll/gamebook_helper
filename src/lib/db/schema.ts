@@ -173,7 +173,11 @@ export const combats = sqliteTable(
       .default(sql`(unixepoch())`),
     endedAt: integer('ended_at', { mode: 'timestamp' }),
   },
-  (t) => [index('combats_session_id_idx').on(t.sessionId)],
+  (t) => [
+    index('combats_session_id_idx').on(t.sessionId),
+    // Partial unique index: only one active combat per session (outcome = 'in_progress')
+    uniqueIndex('combats_active_session_uniq').on(t.sessionId).where(sql`outcome = 'in_progress'`),
+  ],
 )
 
 export const combatRounds = sqliteTable(
