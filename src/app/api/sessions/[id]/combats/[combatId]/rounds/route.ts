@@ -112,22 +112,38 @@ export async function POST(
       // Do NOT re-call resolveRound — this avoids re-rolling dice.
       const safeOverrides = overrides!
       const originalEnemyState = combat.enemyState as Record<string, unknown>
+
+      // Use system-agnostic field names to locate enemy and player HP.
+      // primaryEnemyHealthStat is the key used in enemyState (e.g. 'stamina' for FF,
+      // 'currentLifePoints' for GQ — note GQ's enemyState uses the prefixed form).
+      // We check both the direct key and a 'current'-prefixed variant to cover both
+      // systems without requiring a schema change.
+      const enemyHealthField = gameSystem.combat!.primaryEnemyHealthStat
+      const enemyHealthFieldPrefixed =
+        'current' + enemyHealthField.charAt(0).toUpperCase() + enemyHealthField.slice(1)
+      const resolvedEnemyField =
+        typeof originalEnemyState[enemyHealthField] === 'number'
+          ? enemyHealthField
+          : enemyHealthFieldPrefixed
+
       const originalEnemyLp =
-        typeof originalEnemyState['currentLifePoints'] === 'number'
-          ? (originalEnemyState['currentLifePoints'] as number)
+        typeof originalEnemyState[resolvedEnemyField] === 'number'
+          ? (originalEnemyState[resolvedEnemyField] as number)
           : 0
+
+      const playerHealthField = gameSystem.primaryHealthStat
 
       finalDamageDealt = typeof safeOverrides.damageDealt === 'number' ? safeOverrides.damageDealt : 0
       finalDamageTaken = typeof safeOverrides.damageTaken === 'number' ? safeOverrides.damageTaken : 0
 
       const newEnemyLp = Math.max(0, originalEnemyLp - finalDamageDealt)
-      finalEnemyState = { ...originalEnemyState, currentLifePoints: newEnemyLp }
-      finalCharacterDeltas = { lifePoints: -finalDamageTaken }
+      finalEnemyState = { ...originalEnemyState, [resolvedEnemyField]: newEnemyLp }
+      finalCharacterDeltas = { [playerHealthField]: -finalDamageTaken }
 
       // Re-derive outcome from updated HPs
       const playerCurrentLp =
-        typeof characterStats['lifePoints'] === 'number'
-          ? (characterStats['lifePoints'] as number)
+        typeof characterStats[playerHealthField] === 'number'
+          ? (characterStats[playerHealthField] as number)
           : 0
       const playerNewLp = playerCurrentLp - finalDamageTaken
       const knockoutThreshold = gameSystem.combat?.knockoutThreshold ?? null
