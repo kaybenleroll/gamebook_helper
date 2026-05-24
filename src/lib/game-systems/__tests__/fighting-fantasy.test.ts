@@ -56,6 +56,16 @@ describe('fightingFantasy system definition', () => {
     expect(fightingFantasy.spells).toBeUndefined()
   })
 
+  it('defines a Provisions consumable in the consumables array', () => {
+    expect(fightingFantasy.consumables).toBeDefined()
+    expect(fightingFantasy.consumables!.length).toBeGreaterThan(0)
+    const provisions = fightingFantasy.consumables!.find((c) => c.name === 'Provisions')
+    expect(provisions).toBeDefined()
+    expect(provisions!.itemType).toBe('provision')
+    expect(provisions!.initialCount).toBe(10)
+    expect(provisions!.healAmount).toBe(4)
+  })
+
   it('is registered in the global registry', () => {
     expect(gameSystemRegistry.get('fighting-fantasy')).toBe(fightingFantasy)
   })
@@ -200,5 +210,62 @@ describe('fightingFantasy testLuck', () => {
     const result = fightingFantasy.testLuck!(stats, stats)
     expect(typeof result.message).toBe('string')
     expect(result.message.length).toBeGreaterThan(0)
+  })
+})
+
+describe('fightingFantasy applyConsumable', () => {
+  it('is defined on the fightingFantasy system', () => {
+    expect(typeof fightingFantasy.applyConsumable).toBe('function')
+  })
+
+  it('restores 4 STAMINA when used', () => {
+    const provisions = { name: 'Provisions', itemType: 'provision', healAmount: 4 }
+    const stats = { skill: 10, stamina: 14, luck: 8 }
+    const initialStats = { skill: 10, stamina: 20, luck: 8 }
+    const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
+    expect(result.statDeltas.stamina).toBe(4)
+  })
+
+  it('caps STAMINA at the initial value', () => {
+    const provisions = { name: 'Provisions', itemType: 'provision', healAmount: 4 }
+    // Current stamina is 18, max is 20 — only 2 can be healed
+    const stats = { skill: 10, stamina: 18, luck: 8 }
+    const initialStats = { skill: 10, stamina: 20, luck: 8 }
+    const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
+    expect(result.statDeltas.stamina).toBe(2)
+  })
+
+  it('returns 0 stamina delta when STAMINA is already at max', () => {
+    const provisions = { name: 'Provisions', itemType: 'provision', healAmount: 4 }
+    const stats = { skill: 10, stamina: 20, luck: 8 }
+    const initialStats = { skill: 10, stamina: 20, luck: 8 }
+    const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
+    expect(result.statDeltas.stamina).toBe(0)
+  })
+
+  it('returns statDeltas with a stamina key', () => {
+    const provisions = { name: 'Provisions', itemType: 'provision', healAmount: 4 }
+    const stats = { skill: 10, stamina: 10, luck: 8 }
+    const initialStats = { skill: 10, stamina: 20, luck: 8 }
+    const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
+    expect(result.statDeltas).toHaveProperty('stamina')
+  })
+
+  it('returns a non-empty message string', () => {
+    const provisions = { name: 'Provisions', itemType: 'provision', healAmount: 4 }
+    const stats = { skill: 10, stamina: 14, luck: 8 }
+    const initialStats = { skill: 10, stamina: 20, luck: 8 }
+    const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
+    expect(typeof result.message).toBe('string')
+    expect(result.message.length).toBeGreaterThan(0)
+  })
+
+  it('message mentions the amount of STAMINA restored', () => {
+    const provisions = { name: 'Provisions', itemType: 'provision', healAmount: 4 }
+    const stats = { skill: 10, stamina: 14, luck: 8 }
+    const initialStats = { skill: 10, stamina: 20, luck: 8 }
+    const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
+    expect(result.message).toContain('4')
+    expect(result.message.toLowerCase()).toContain('stamina')
   })
 })
