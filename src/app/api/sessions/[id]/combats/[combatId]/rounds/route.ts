@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import '../../../../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../../../../lib/game-systems/registry'
-import { applyXpThreshold } from '../../../../../../../lib/game-systems/grail-quest'
 import { db } from '../../../../../../../lib/db'
-// NOTE: applyXpThreshold is still imported here because the post-combat XP flow
-// requires LP-threshold recalculation which is Grail Quest-specific bookkeeping
-// tracked in initialStats; this will be addressed in a follow-up slice.
 import { sessions, characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
 import { eq, count, and, desc } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../../lib/db/schema'
@@ -211,21 +207,25 @@ export async function POST(
     let xpPrompt = false
     if (finalOutcome === 'player_won' || finalOutcome === 'enemy_knocked_out') {
       const postCombat = gameSystem.combat?.applyPostCombat?.(combat, newStats)
+      const xpKey = gameSystem.experienceStatKey
       if (postCombat) {
         const { xpGained, statDeltas } = postCombat
-        if (typeof xpGained === 'number' && xpGained > 0) {
+        if (xpKey && typeof xpGained === 'number' && xpGained > 0) {
           const currentXp =
-            typeof newStats['experiencePoints'] === 'number'
-              ? (newStats['experiencePoints'] as number)
-              : 0
-          newStats = { ...newStats, experiencePoints: currentXp + xpGained }
-          const xpResult = applyXpThreshold(newStats, newInitialStats)
-          newStats = xpResult.stats
-          newInitialStats = xpResult.initialStats
+            typeof newStats[xpKey] === 'number' ? (newStats[xpKey] as number) : 0
+          newStats = { ...newStats, [xpKey]: currentXp + xpGained }
+          // Apply any post-stat-change side effects (e.g. GQ LP threshold recalculation)
+          const hookResult = gameSystem.onStatChanged?.(xpKey, newStats, newInitialStats)
+          if (hookResult?.initialDeltas) {
+            for (const [key, delta] of Object.entries(hookResult.initialDeltas)) {
+              const current =
+                typeof newInitialStats[key] === 'number' ? (newInitialStats[key] as number) : 0
+              newInitialStats = { ...newInitialStats, [key]: current + delta }
+            }
+          }
         } else if (!xpGained) {
-          // Module returned no XP — check if this system tracks XP at all
-          const hasXpStat = gameSystem.stats.some((s) => s.key === 'experiencePoints')
-          if (hasXpStat) xpPrompt = true
+          // Module returned no XP — show prompt if this system tracks XP
+          if (xpKey) xpPrompt = true
         }
         if (statDeltas) {
           for (const [stat, delta] of Object.entries(statDeltas)) {

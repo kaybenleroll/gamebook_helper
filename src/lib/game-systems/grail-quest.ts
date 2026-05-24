@@ -455,6 +455,7 @@ const grailQuestConsumables: ConsumableDefinition[] = [
 export const grailQuest: GameSystem = {
   id: 'grail-quest',
   name: 'Grail Quest',
+  experienceStatKey: 'experiencePoints',
   stats: [
     {
       key: 'lifePoints',
@@ -518,6 +519,46 @@ export const grailQuest: GameSystem = {
       statDeltas: { lifePoints: actualHeal },
       message: `Used ${itemName}: restored ${actualHeal} LP (rolled ${healRoll}, capped at max ${maxLp}).`,
     }
+  },
+
+  onStatChanged(
+    stat: string,
+    newCurrentStats: Record<string, unknown>,
+    newInitialStats: Record<string, unknown>,
+  ): { currentDeltas?: Record<string, number>; initialDeltas?: Record<string, number> } {
+    if (stat === 'experiencePoints') {
+      // XP change: check whether a new LP threshold has been crossed.
+      const result = applyXpThreshold(newCurrentStats, newInitialStats)
+      const initialDeltas: Record<string, number> = {}
+      const newLpMax = result.initialStats['lifePoints']
+      const oldLpMax = newInitialStats['lifePoints']
+      if (typeof newLpMax === 'number' && typeof oldLpMax === 'number' && newLpMax !== oldLpMax) {
+        initialDeltas['lifePoints'] = newLpMax - oldLpMax
+      }
+      const newBonuses = result.initialStats['lifePointsXpBonuses']
+      const oldBonuses = newInitialStats['lifePointsXpBonuses']
+      if (
+        typeof newBonuses === 'number' &&
+        (typeof oldBonuses !== 'number' || newBonuses !== oldBonuses)
+      ) {
+        initialDeltas['lifePointsXpBonuses'] = newBonuses - (typeof oldBonuses === 'number' ? oldBonuses : 0)
+      }
+      return Object.keys(initialDeltas).length > 0 ? { initialDeltas } : {}
+    }
+
+    if (stat === 'lifePoints') {
+      // Initial LP manually changed: resync lifePointsXpBonuses to current XP.
+      const currentXp =
+        typeof newCurrentStats['experiencePoints'] === 'number'
+          ? (newCurrentStats['experiencePoints'] as number)
+          : 0
+      const newBonusCount = xpToLpBonuses(currentXp)
+      const oldBonuses = newInitialStats['lifePointsXpBonuses']
+      const delta = newBonusCount - (typeof oldBonuses === 'number' ? oldBonuses : 0)
+      return { initialDeltas: { lifePointsXpBonuses: delta } }
+    }
+
+    return {}
   },
 }
 

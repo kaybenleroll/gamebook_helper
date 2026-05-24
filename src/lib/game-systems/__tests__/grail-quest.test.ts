@@ -6,6 +6,7 @@ import {
   xpThresholdProgress,
   applyXpThreshold,
 } from '../grail-quest'
+import { fightingFantasy } from '../fighting-fantasy'
 import { gameSystemRegistry } from '../registry'
 import '../grail-quest'
 
@@ -89,6 +90,76 @@ describe('xpThresholdProgress', () => {
 
   it('returns 5/20 at 25 XP', () => {
     expect(xpThresholdProgress(25)).toEqual({ progress: 5, threshold: 20 })
+  })
+})
+
+describe('grailQuest.experienceStatKey', () => {
+  it('is set to experiencePoints', () => {
+    expect(grailQuest.experienceStatKey).toBe('experiencePoints')
+  })
+})
+
+describe('fightingFantasy.experienceStatKey', () => {
+  it('is undefined (FF does not track XP)', () => {
+    expect(fightingFantasy.experienceStatKey).toBeUndefined()
+  })
+})
+
+describe('grailQuest.onStatChanged', () => {
+  it('is defined', () => {
+    expect(grailQuest.onStatChanged).toBeDefined()
+  })
+
+  it('returns LP max and bonus deltas when XP crosses a threshold', () => {
+    // XP moves from 18 to 23, crossing the first 20-XP boundary.
+    const newCurrentStats = { lifePoints: 10, experiencePoints: 23 }
+    const newInitialStats = { lifePoints: 12, lifePointsXpBonuses: 0 }
+    const result = grailQuest.onStatChanged!('experiencePoints', newCurrentStats, newInitialStats)
+    expect(result.initialDeltas?.lifePoints).toBe(1)
+    expect(result.initialDeltas?.lifePointsXpBonuses).toBe(1)
+  })
+
+  it('returns no deltas when XP does not cross a new threshold', () => {
+    const newCurrentStats = { lifePoints: 10, experiencePoints: 15 }
+    const newInitialStats = { lifePoints: 12, lifePointsXpBonuses: 0 }
+    const result = grailQuest.onStatChanged!('experiencePoints', newCurrentStats, newInitialStats)
+    expect(result.initialDeltas).toBeUndefined()
+  })
+
+  it('does not double-award LP when called again at the same XP (bonus already recorded)', () => {
+    const newCurrentStats = { lifePoints: 10, experiencePoints: 20 }
+    const newInitialStats = { lifePoints: 13, lifePointsXpBonuses: 1 }
+    const result = grailQuest.onStatChanged!('experiencePoints', newCurrentStats, newInitialStats)
+    expect(result.initialDeltas).toBeUndefined()
+  })
+
+  it('awards multiple LP bonuses when XP jumps across several thresholds at once', () => {
+    const newCurrentStats = { lifePoints: 10, experiencePoints: 60 }
+    const newInitialStats = { lifePoints: 12, lifePointsXpBonuses: 0 }
+    const result = grailQuest.onStatChanged!('experiencePoints', newCurrentStats, newInitialStats)
+    expect(result.initialDeltas?.lifePoints).toBe(3)
+    expect(result.initialDeltas?.lifePointsXpBonuses).toBe(3)
+  })
+
+  it('resyncs lifePointsXpBonuses when lifePoints initial stat is changed', () => {
+    // Current XP is 20, so 1 bonus should be recorded.
+    const newCurrentStats = { lifePoints: 12, experiencePoints: 20 }
+    const newInitialStats = { lifePoints: 14, lifePointsXpBonuses: 0 }
+    const result = grailQuest.onStatChanged!('lifePoints', newCurrentStats, newInitialStats)
+    // delta = xpToLpBonuses(20) - 0 = 1
+    expect(result.initialDeltas?.lifePointsXpBonuses).toBe(1)
+  })
+
+  it('returns no deltas for stats other than experiencePoints or lifePoints', () => {
+    const result = grailQuest.onStatChanged!('someOtherStat', {}, {})
+    expect(result.initialDeltas).toBeUndefined()
+    expect(result.currentDeltas).toBeUndefined()
+  })
+})
+
+describe('fightingFantasy.onStatChanged', () => {
+  it('is undefined (FF has no post-stat-change side effects)', () => {
+    expect(fightingFantasy.onStatChanged).toBeUndefined()
   })
 })
 
