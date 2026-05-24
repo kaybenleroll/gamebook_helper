@@ -163,6 +163,7 @@ vi.mock('@/lib/db', () => ({ db: testDb }))
 
 // Import the handlers AFTER the mock is registered so they receive testDb.
 const { POST: startCombat } = await import('@/app/api/sessions/[id]/combats/route')
+const { PATCH: patchCombat } = await import('@/app/api/sessions/[id]/combats/[combatId]/route')
 const { POST: resolveRound } = await import(
   '@/app/api/sessions/[id]/combats/[combatId]/rounds/route'
 )
@@ -177,6 +178,24 @@ function makeStartRequest(sessionId: number | string, body: unknown): NextReques
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+}
+
+function makePatchRequest(sessionId: number | string, combatId: number | string, body: unknown): NextRequest {
+  return new NextRequest(
+    `http://localhost/api/sessions/${sessionId}/combats/${combatId}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
+}
+
+function makePatchParams(
+  sessionId: number | string,
+  combatId: number | string,
+): { params: Promise<{ id: string; combatId: string }> } {
+  return { params: Promise.resolve({ id: String(sessionId), combatId: String(combatId) }) }
 }
 
 function makeRoundRequest(
@@ -259,7 +278,7 @@ function seedSessionWithCombat(opts?: {
         enemyRoll: 5,
         combatModifiers: {},
         enemyXp: opts?.enemyXp ?? 5,
-        playerThreshold: 6,
+        playerThreshold: 4,
       },
       outcome: 'in_progress',
     })
@@ -566,7 +585,7 @@ describe('Combat persistence integration', () => {
           enemyName: 'Goblin',
           enemyStats: { name: 'Goblin', lifePoints: 6 },
           enemyState: { currentLifePoints: 0 },
-          metadata: { initiativeWinner: 'player', playerRoll: 8, enemyRoll: 5, combatModifiers: {}, enemyXp: 5, playerThreshold: 6 },
+          metadata: { initiativeWinner: 'player', playerRoll: 8, enemyRoll: 5, combatModifiers: {}, enemyXp: 5, playerThreshold: 4 },
           outcome: 'player_won',
         })
         .run()
@@ -581,6 +600,90 @@ describe('Combat persistence integration', () => {
       expect(response.status).toBe(409)
       const body = await response.json() as { error: string }
       expect(body.error).toMatch(/no longer in progress/i)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // PATCH /api/sessions/[id]/combats/[combatId] — player_fled (override-commit)
+  // -------------------------------------------------------------------------
+
+  describe('PATCH /api/sessions/[id]/combats/[combatId] (player fled)', () => {
+    it('sets outcome to player_fled and returns the updated combat', async () => {
+      const { sessionId, combatId } = seedSessionWithCombat()
+
+      const response = await patchCombat(
+        makePatchRequest(sessionId, combatId, { outcome: 'player_fled' }),
+        makePatchParams(sessionId, combatId),
+      )
+
+      expect(response.status).toBe(200)
+      const body = await response.json() as Record<string, unknown>
+      expect(body.outcome).toBe('player_fled')
+
+      // DB must reflect the final outcome.
+      const saved = readCombat(combatId)
+      expect(saved.outcome).toBe('player_fled')
+      expect(saved.endedAt).toBeTruthy()
+    })
+
+    it('returns 400 when trying to set outcome to player_won directly', async () => {
+      const { sessionId, combatId } = seedSessionWithCombat()
+
+      const response = await patchCombat(
+        makePatchRequest(sessionId, combatId, { outcome: 'player_won' }),
+        makePatchParams(sessionId, combatId),
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json() as { error: string }
+      expect(body.error).toMatch(/cannot be set directly/i)
+    })
+
+    it('returns 400 when trying to set outcome to player_lost directly', async () => {
+      const { sessionId, combatId } = seedSessionWithCombat()
+
+      const response = await patchCombat(
+        makePatchRequest(sessionId, combatId, { outcome: 'player_lost' }),
+        makePatchParams(sessionId, combatId),
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json() as { error: string }
+      expect(body.error).toMatch(/cannot be set directly/i)
+    })
+  })
+
+  // -------------------------------------------------------------------------
+  // POST /api/sessions/[id]/combats — initiative paths
+  // -------------------------------------------------------------------------
+
+  describe('POST /api/sessions/[id]/combats — initiative paths', () => {
+    it('honours initiativeMode player: initiativeWinner is player in metadata', async () => {
+      const { sessionId } = seedSession()
+
+      const response = await startCombat(
+        makeStartRequest(sessionId, { name: 'Goblin', lifePoints: 6, xp: 5, initiativeMode: 'player' }),
+        makeStartParams(sessionId),
+      )
+
+      expect(response.status).toBe(201)
+      const body = await response.json() as Record<string, unknown>
+      const metadata = body.metadata as Record<string, unknown>
+      expect(metadata.initiativeWinner).toBe('player')
+    })
+
+    it('honours initiativeMode enemy: initiativeWinner is enemy in metadata', async () => {
+      const { sessionId } = seedSession()
+
+      const response = await startCombat(
+        makeStartRequest(sessionId, { name: 'Goblin', lifePoints: 6, xp: 5, initiativeMode: 'enemy' }),
+        makeStartParams(sessionId),
+      )
+
+      expect(response.status).toBe(201)
+      const body = await response.json() as Record<string, unknown>
+      const metadata = body.metadata as Record<string, unknown>
+      expect(metadata.initiativeWinner).toBe('enemy')
     })
   })
 })
