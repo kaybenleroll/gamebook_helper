@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import '../../../../../../../lib/game-systems/index'
-import { gameSystemRegistry } from '../../../../../../../lib/game-systems/registry'
 import { db } from '../../../../../../../lib/db'
-import { sessions, characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
+import { characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
 import { eq, count, and, desc } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../../lib/db/schema'
+import { resolveSession } from '../../../../../../../lib/api/withSession'
 import logger from '../../../../../../../lib/logger'
 
 function formatTs(v: Date | number | null): string | null {
@@ -19,21 +18,15 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const { id, combatId } = await params
-    const sessionId = parseInt(id, 10)
     const combatIdInt = parseInt(combatId, 10)
-    if (isNaN(sessionId) || isNaN(combatIdInt)) {
+    if (isNaN(combatIdInt)) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
     }
 
-    const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
-    if (!session) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
-
-    let gameSystem
-    try {
-      gameSystem = gameSystemRegistry.get(session.gameSystemId)
-    } catch {
-      return NextResponse.json({ error: 'Unknown game system' }, { status: 500 })
-    }
+    const ctx = await resolveSession(id)
+    if (ctx instanceof NextResponse) return ctx
+    const { session, gameSystem } = ctx
+    const sessionId = session.id
 
     if (!gameSystem.combat) {
       return NextResponse.json(
@@ -53,12 +46,7 @@ export async function POST(
       return NextResponse.json({ error: 'Combat is no longer in progress' }, { status: 409 })
     }
 
-    const character = db
-      .select()
-      .from(characters)
-      .where(eq(characters.sessionId, sessionId))
-      .get()
-    if (!character) return NextResponse.json({ error: 'Character not found' }, { status: 404 })
+    const { character } = ctx
 
     const body = (await request.json()) as {
       chosenOptions?: Record<string, unknown>
