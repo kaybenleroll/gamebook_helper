@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fightingFantasy } from '../fighting-fantasy'
+import { fightingFantasy, fightingFantasyCombat } from '../fighting-fantasy'
 import { gameSystemRegistry } from '../registry'
 import '../fighting-fantasy'
 import * as diceModule from '../../dice'
@@ -48,8 +48,8 @@ describe('fightingFantasy system definition', () => {
     expect(luck!.initialDice!.worstOf).toBeUndefined()
   })
 
-  it('has no combat module (slice 7)', () => {
-    expect(fightingFantasy.combat).toBeUndefined()
+  it('has a combat module', () => {
+    expect(fightingFantasy.combat).toBeDefined()
   })
 
   it('has no spells', () => {
@@ -296,5 +296,201 @@ describe('fightingFantasy applyConsumable', () => {
     const result = fightingFantasy.applyConsumable!(provisions, stats, initialStats)
     expect(result.message).toContain('4')
     expect(result.message.toLowerCase()).toContain('stamina')
+  })
+})
+
+// ---- FF combat module tests ----
+
+function makeFFEnemyState(stamina: number, skill = 7) {
+  return { skill, stamina, initialStamina: stamina }
+}
+
+function makeFFCharacterStats(overrides?: Partial<{ skill: number; stamina: number; luck: number }>) {
+  return { skill: 10, stamina: 18, luck: 8, ...overrides }
+}
+
+const ffMetadata: Record<string, unknown> = {}
+
+function ffResolveWith(
+  opts: {
+    enemyState?: ReturnType<typeof makeFFEnemyState>
+    characterStats?: ReturnType<typeof makeFFCharacterStats>
+  } = {},
+) {
+  return fightingFantasyCombat.resolveRound({
+    enemyStats: {},
+    enemyState: opts.enemyState ?? makeFFEnemyState(10),
+    metadata: ffMetadata,
+    characterStats: opts.characterStats ?? makeFFCharacterStats(),
+    chosenOptions: {},
+    combatModifiers: {},
+  })
+}
+
+describe('fightingFantasyCombat — enemyStatFields', () => {
+  it('has skill and stamina fields', () => {
+    const keys = fightingFantasyCombat.enemyStatFields.map((f) => f.key)
+    expect(keys).toContain('skill')
+    expect(keys).toContain('stamina')
+  })
+
+  it('has no initiative radio field', () => {
+    const radioFields = fightingFantasyCombat.enemyStatFields.filter((f) => f.type === 'radio')
+    expect(radioFields).toHaveLength(0)
+  })
+
+  it('has no lifePoints field', () => {
+    const keys = fightingFantasyCombat.enemyStatFields.map((f) => f.key)
+    expect(keys).not.toContain('lifePoints')
+  })
+})
+
+describe('fightingFantasyCombat — knockoutThreshold', () => {
+  it('has no knockout threshold', () => {
+    expect(fightingFantasyCombat.knockoutThreshold).toBeUndefined()
+  })
+})
+
+describe('fightingFantasyCombat — start', () => {
+  it('initialises enemyState with skill, stamina, and initialStamina', () => {
+    const { enemyState } = fightingFantasyCombat.start({ skill: 8, stamina: 12 }) as {
+      enemyState: Record<string, unknown>
+    }
+    expect(enemyState['skill']).toBe(8)
+    expect(enemyState['stamina']).toBe(12)
+    expect(enemyState['initialStamina']).toBe(12)
+  })
+
+  it('returns no startNarrative', () => {
+    const result = fightingFantasyCombat.start({ skill: 7, stamina: 10 })
+    expect(result.startNarrative).toBeUndefined()
+  })
+})
+
+describe('fightingFantasyCombat — resolveRound', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('player wins when player Attack Strength > enemy Attack Strength — enemy takes 2 STAMINA', () => {
+    // Player: skill=10, roll [6+6]=12 → AS=22. Enemy: skill=7, roll [1+1]=2 → AS=9. Player wins.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6
+      .mockReturnValueOnce(0.99) // player die 2: 6 → roll 12, AS = 12+10 = 22
+      .mockReturnValueOnce(0)    // enemy die 1: 1
+      .mockReturnValueOnce(0)    // enemy die 2: 1 → roll 2, AS = 2+7 = 9
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(10, 7),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 18 }),
+    })
+    expect(result.damageDealt).toBe(2)
+    expect(result.damageTaken).toBe(0)
+    expect(result.characterDeltas['stamina']).toBe(0)
+  })
+
+  it('enemy wins when enemy Attack Strength > player Attack Strength — player takes 2 STAMINA', () => {
+    // Player: skill=10, roll [1+1]=2 → AS=12. Enemy: skill=7, roll [6+6]=12 → AS=19. Enemy wins.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)    // player die 1: 1
+      .mockReturnValueOnce(0)    // player die 2: 1 → roll 2, AS = 2+10 = 12
+      .mockReturnValueOnce(0.99) // enemy die 1: 6
+      .mockReturnValueOnce(0.99) // enemy die 2: 6 → roll 12, AS = 12+7 = 19
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(10, 7),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 18 }),
+    })
+    expect(result.damageTaken).toBe(2)
+    expect(result.damageDealt).toBe(0)
+    expect(result.characterDeltas['stamina']).toBe(-2)
+  })
+
+  it('tie when Attack Strengths are equal — no damage to either side', () => {
+    // Player: skill=10, roll [3+3]=6 → AS=16. Enemy: skill=10, roll [3+3]=6 → AS=16. Tie.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce((3 - 1) / 6) // player die 1: 3
+      .mockReturnValueOnce((3 - 1) / 6) // player die 2: 3 → roll 6, AS = 6+10 = 16
+      .mockReturnValueOnce((3 - 1) / 6) // enemy die 1: 3
+      .mockReturnValueOnce((3 - 1) / 6) // enemy die 2: 3 → roll 6, AS = 6+10 = 16
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(10, 10),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 18 }),
+    })
+    expect(result.damageDealt).toBe(0)
+    expect(result.damageTaken).toBe(0)
+    expect(result.characterDeltas['stamina']).toBe(0)
+  })
+
+  it('combat ends with player_won when enemy STAMINA reaches 0', () => {
+    // Enemy starts at 2 STAMINA. Player wins the round → 2 damage → enemy at 0.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6
+      .mockReturnValueOnce(0.99) // player die 2: 6 → roll 12, AS = 22
+      .mockReturnValueOnce(0)    // enemy die 1: 1
+      .mockReturnValueOnce(0)    // enemy die 2: 1 → roll 2, AS = 9
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(2, 7),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 18 }),
+    })
+    expect(result.outcome).toBe('player_won')
+    const newEnemyState = result.enemyState as Record<string, unknown>
+    expect(newEnemyState['stamina']).toBe(0)
+  })
+
+  it('combat ends with player_lost when player STAMINA reaches 0', () => {
+    // Player starts at 2 STAMINA. Enemy wins the round → 2 damage → player at 0.
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0)    // player die 1: 1
+      .mockReturnValueOnce(0)    // player die 2: 1 → roll 2, AS = 12
+      .mockReturnValueOnce(0.99) // enemy die 1: 6
+      .mockReturnValueOnce(0.99) // enemy die 2: 6 → roll 12, AS = 19
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(10, 7),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 2 }),
+    })
+    expect(result.outcome).toBe('player_lost')
+  })
+
+  it('returns null outcome when combat continues (neither side at 0 STAMINA)', () => {
+    // Both sides survive
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player roll → player wins
+      .mockReturnValueOnce(0.99)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(20, 7),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 20 }),
+    })
+    expect(result.outcome).toBeNull()
+  })
+
+  it('narrative contains both Attack Strength values', () => {
+    vi.spyOn(Math, 'random')
+      .mockReturnValueOnce(0.99) // player die 1: 6
+      .mockReturnValueOnce(0.99) // player die 2: 6 → roll 12, AS = 22
+      .mockReturnValueOnce(0)    // enemy die 1: 1
+      .mockReturnValueOnce(0)    // enemy die 2: 1 → roll 2, AS = 9
+
+    const result = ffResolveWith({
+      enemyState: makeFFEnemyState(10, 7),
+      characterStats: makeFFCharacterStats({ skill: 10, stamina: 18 }),
+    })
+    const detail = result.detail as Record<string, unknown>
+    const narrative = detail['narrative'] as string
+    expect(narrative).toContain('22')  // player AS
+    expect(narrative).toContain('9')   // enemy AS
+  })
+})
+
+describe('fightingFantasyCombat — applyPostCombat', () => {
+  it('returns empty object (no XP in FF)', () => {
+    const result = fightingFantasyCombat.applyPostCombat!({}, {})
+    expect(result).toEqual({})
   })
 })
