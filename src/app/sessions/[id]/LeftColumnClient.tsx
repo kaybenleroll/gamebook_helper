@@ -147,6 +147,7 @@ export interface LeftColumnProps {
   enemyStatFields: CombatModule['enemyStatFields'] | null
   primaryHealthStat: string
   primaryEnemyHealthStat: string
+  hasTestLuck: boolean
   creationRolls: CreationRolls | null
   defaultDice: DiceSpec
   initialItems: InventoryItem[]
@@ -168,6 +169,7 @@ export default function LeftColumnClient({
   enemyStatFields,
   primaryHealthStat,
   primaryEnemyHealthStat,
+  hasTestLuck,
   creationRolls,
   defaultDice,
   initialItems,
@@ -306,6 +308,7 @@ export default function LeftColumnClient({
               onStatsChange={handleStatsChange}
               primaryHealthStat={primaryHealthStat}
               primaryEnemyHealthStat={primaryEnemyHealthStat}
+              hasTestLuck={hasTestLuck}
               onCombatEnd={() => setCombatOpen(false)}
             />
           </div>
