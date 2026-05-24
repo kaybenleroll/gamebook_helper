@@ -409,11 +409,18 @@ export default function CombatPanel({
     : []
 
   const enemyHpKey = primaryEnemyHealthStat
+  // Read current enemy HP using the system-aware field name.
+  // Some systems (Grail Quest) store current HP under a 'current'-prefixed key
+  // (e.g. currentLifePoints); others (Fighting Fantasy) store it directly under
+  // the primary health stat key (e.g. stamina). Try the direct key first.
   const enemyCurrentHpKey = 'current' + primaryEnemyHealthStat.charAt(0).toUpperCase() + primaryEnemyHealthStat.slice(1)
+  const enemyStateRecord = (combat?.enemyState as Record<string, unknown> | undefined) ?? {}
   const enemyCurrentHp =
-    typeof (combat?.enemyState as Record<string, unknown> | undefined)?.[enemyCurrentHpKey] === 'number'
-      ? ((combat!.enemyState as Record<string, unknown>)[enemyCurrentHpKey] as number)
-      : 0
+    typeof enemyStateRecord[primaryEnemyHealthStat] === 'number'
+      ? (enemyStateRecord[primaryEnemyHealthStat] as number)
+      : typeof enemyStateRecord[enemyCurrentHpKey] === 'number'
+        ? (enemyStateRecord[enemyCurrentHpKey] as number)
+        : 0
   const enemyMaxHp =
     typeof (combat?.enemyStats as Record<string, unknown> | undefined)?.[enemyHpKey] === 'number'
       ? ((combat!.enemyStats as Record<string, unknown>)[enemyHpKey] as number)
