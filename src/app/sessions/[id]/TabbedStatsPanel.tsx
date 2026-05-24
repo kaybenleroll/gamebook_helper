@@ -59,13 +59,14 @@ export default function TabbedStatsPanel({
   gameSystemId,
   isGameOver,
   primaryHealthStat,
-  creationRolls,
+  creationRolls: initialCreationRolls,
   onStatsChange,
   initialItems,
   spellDefinitions,
   initialSpellState,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('stats')
+  const [creationRolls, setCreationRolls] = useState<CreationRolls | null>(initialCreationRolls)
 
   const hasSpells = spellDefinitions && spellDefinitions.length > 0
 
@@ -105,6 +106,7 @@ export default function TabbedStatsPanel({
             isGameOver={isGameOver}
             primaryHealthStat={primaryHealthStat}
             creationRolls={creationRolls}
+            onCreationRollsDismiss={() => setCreationRolls(null)}
             onStatsChange={onStatsChange}
           />
         )}
