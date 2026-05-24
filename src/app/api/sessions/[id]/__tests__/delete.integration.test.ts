@@ -183,6 +183,11 @@ describe('DELETE /api/sessions/[id]', () => {
   let seeded: Awaited<ReturnType<typeof seedSessionWithRelatedData>>
 
   beforeEach(async () => {
+    // Wipe all sessions before each test; ON DELETE CASCADE removes all child
+    // rows (characters, maps, combats, combat_rounds, section_visits,
+    // inventory_items, session_spells) automatically.
+    testDb.delete(sessions).run()
+
     // Each test starts with a freshly seeded session and all related rows.
     seeded = await seedSessionWithRelatedData(testDb)
   })
