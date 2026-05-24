@@ -44,9 +44,10 @@ export function createTestDb(): TestDb {
       game_system_id TEXT NOT NULL,
       book_title TEXT NOT NULL,
       notes TEXT,
+      panel_order TEXT,
+      metadata TEXT,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      panel_order TEXT
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
 
     CREATE TABLE IF NOT EXISTS characters (

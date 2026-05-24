@@ -3,6 +3,7 @@ import '../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../lib/game-systems/registry'
 import { db } from '../../../../lib/db'
 import { sessions, characters, maps, combats, combatRounds, sectionVisits, inventoryItems, sessionSpells } from '../../../../lib/db/schema'
+import type { SessionMetadata } from '../../../../lib/db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import logger from '../../../../lib/logger'
 
@@ -40,6 +41,7 @@ export async function GET(
         bookTitle: session.bookTitle,
         gameSystemId: session.gameSystemId,
         gameSystemName: gameSystem.name,
+        metadata: (session.metadata ?? {}) as SessionMetadata,
       },
       character: {
         stats: character.stats,
@@ -67,8 +69,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid session ID' }, { status: 400 })
     }
 
-    const body = await request.json() as { bookTitle?: unknown; notes?: unknown; panelOrder?: unknown }
-    const { bookTitle, notes, panelOrder } = body
+    const body = await request.json() as { bookTitle?: unknown; notes?: unknown; panelOrder?: unknown; metadata?: unknown }
+    const { bookTitle, notes, panelOrder, metadata } = body
 
     if (bookTitle !== undefined && (typeof bookTitle !== 'string' || bookTitle.trim() === '')) {
       return NextResponse.json({ error: 'bookTitle must be a non-empty string' }, { status: 400 })
@@ -84,8 +86,12 @@ export async function PATCH(
       }
     }
 
-    if (bookTitle === undefined && notes === undefined && panelOrder === undefined) {
-      return NextResponse.json({ error: 'At least one field (bookTitle, notes, or panelOrder) must be provided' }, { status: 400 })
+    if (metadata !== undefined && (typeof metadata !== 'object' || metadata === null || Array.isArray(metadata))) {
+      return NextResponse.json({ error: 'metadata must be an object' }, { status: 400 })
+    }
+
+    if (bookTitle === undefined && notes === undefined && panelOrder === undefined && metadata === undefined) {
+      return NextResponse.json({ error: 'At least one field (bookTitle, notes, panelOrder, or metadata) must be provided' }, { status: 400 })
     }
 
     const session = db.select().from(sessions).where(eq(sessions.id, sessionId)).get()
@@ -98,10 +104,15 @@ export async function PATCH(
       bookTitle?: string
       notes?: string | null
       panelOrder?: string | null
+      metadata?: SessionMetadata
     } = { updatedAt: new Date() }
     if (bookTitle !== undefined) updateFields.bookTitle = (bookTitle as string).trim()
     if (notes !== undefined) updateFields.notes = notes === '' ? null : (notes as string)
     if (panelOrder !== undefined) updateFields.panelOrder = JSON.stringify(panelOrder)
+    if (metadata !== undefined) {
+      const existing = (session.metadata ?? {}) as SessionMetadata
+      updateFields.metadata = { ...existing, ...(metadata as SessionMetadata) }
+    }
 
     db.update(sessions)
       .set(updateFields)
@@ -115,6 +126,7 @@ export async function PATCH(
       bookTitle: updatedSession.bookTitle,
       notes: updatedSession.notes ?? null,
       panelOrder: updatedSession.panelOrder ? JSON.parse(updatedSession.panelOrder) as string[] : null,
+      metadata: (updatedSession.metadata ?? {}) as SessionMetadata,
     })
   } catch (err) {
     logger.error({ err }, '[PATCH /api/sessions/[id]] error')
