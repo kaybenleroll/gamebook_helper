@@ -236,6 +236,7 @@ export default async function SessionPage({
             initialNotes={session.notes ?? null}
             spellDefinitions={spellDefs}
             initialSpellState={spellStateForClient}
+            initialMetadata={(session.metadata ?? {}) as Record<string, unknown>}
           />
         }
         right={

@@ -43,6 +43,9 @@ interface Props {
   // SpellsPanel props
   spellDefinitions: SpellDefinition[]
   initialSpellState: SpellState[]
+  // Session metadata (gold, codewords, etc.)
+  metadata?: Record<string, unknown>
+  onMetadataChange?: (metadata: Record<string, unknown>) => void
 }
 
 const TABS: { id: Tab; label: string }[] = [
@@ -64,6 +67,8 @@ export default function TabbedStatsPanel({
   initialItems,
   spellDefinitions,
   initialSpellState,
+  metadata,
+  onMetadataChange,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('stats')
   const [creationRolls, setCreationRolls] = useState<CreationRolls | null>(initialCreationRolls)
@@ -108,6 +113,8 @@ export default function TabbedStatsPanel({
             creationRolls={creationRolls}
             onCreationRollsDismiss={() => setCreationRolls(null)}
             onStatsChange={onStatsChange}
+            metadata={metadata}
+            onMetadataChange={onMetadataChange}
           />
         )}
         {activeTab === 'inventory' && (

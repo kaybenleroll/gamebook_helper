@@ -127,4 +127,11 @@ export interface GameSystem {
     characterStats: unknown,
     initialStats: unknown,
   ): { roll: number; success: boolean; newLuck: number; message: string }
+
+  /**
+   * Optional hook to seed default session metadata on session creation.
+   * Returns the metadata object to store when a new session is created.
+   * Systems that need no default metadata may omit this (defaults to {}).
+   */
+  initialMetadata?(): import('../db/schema').SessionMetadata
 }

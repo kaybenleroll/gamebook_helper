@@ -213,6 +213,35 @@ describe('fightingFantasy testLuck', () => {
   })
 })
 
+describe('fightingFantasy initialMetadata', () => {
+  it('is defined on the fightingFantasy system', () => {
+    expect(typeof fightingFantasy.initialMetadata).toBe('function')
+  })
+
+  it('returns gold: 0', () => {
+    const meta = fightingFantasy.initialMetadata!()
+    expect(meta.gold).toBe(0)
+  })
+
+  it('returns codewords: []', () => {
+    const meta = fightingFantasy.initialMetadata!()
+    expect(meta.codewords).toEqual([])
+  })
+
+  it('returns a new object on each call', () => {
+    const a = fightingFantasy.initialMetadata!()
+    const b = fightingFantasy.initialMetadata!()
+    expect(a).not.toBe(b)
+  })
+
+  it('returned codewords array is independent between calls', () => {
+    const a = fightingFantasy.initialMetadata!()
+    const b = fightingFantasy.initialMetadata!()
+    ;(a.codewords as string[]).push('TEST')
+    expect((b.codewords as string[]).length).toBe(0)
+  })
+})
+
 describe('fightingFantasy applyConsumable', () => {
   it('is defined on the fightingFantasy system', () => {
     expect(typeof fightingFantasy.applyConsumable).toBe('function')

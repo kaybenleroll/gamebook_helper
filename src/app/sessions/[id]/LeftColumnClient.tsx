@@ -153,6 +153,7 @@ export interface LeftColumnProps {
   initialNotes: string | null
   spellDefinitions: SpellDefinition[]
   initialSpellState: SpellState[]
+  initialMetadata: Record<string, unknown>
 }
 
 export default function LeftColumnClient({
@@ -173,10 +174,12 @@ export default function LeftColumnClient({
   initialNotes,
   spellDefinitions,
   initialSpellState,
+  initialMetadata,
 }: LeftColumnProps) {
   // Shared character stats — both TabbedStatsPanel and CombatPanel read/write these
   const [currentStats, setCurrentStats] = useState(initialStatsProp)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialInitialStats)
+  const [sessionMetadata, setSessionMetadata] = useState(initialMetadata)
 
   function handleStatsChange(
     newStats: Record<string, unknown>,
@@ -245,6 +248,8 @@ export default function LeftColumnClient({
         initialItems={initialItems}
         spellDefinitions={spellDefinitions}
         initialSpellState={initialSpellState}
+        metadata={sessionMetadata}
+        onMetadataChange={setSessionMetadata}
       />
     ),
     'dice-roller': <DiceRoller defaultDice={defaultDice} />,

@@ -76,7 +76,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const initialMetadata: SessionMetadata = {}
+    const initialMetadata: SessionMetadata = gameSystem.initialMetadata?.() ?? {}
 
     const sessionId = db.transaction((tx) => {
       const result = tx.insert(sessions).values({ gameSystemId, bookTitle, metadata: initialMetadata }).returning({ id: sessions.id }).all()

@@ -68,6 +68,10 @@ export const fightingFantasy: GameSystem = {
     }
   },
 
+  initialMetadata(): import('../db/schema').SessionMetadata {
+    return { gold: 0, codewords: [] }
+  },
+
   testLuck(
     characterStats: unknown,
     _initialStats: unknown,

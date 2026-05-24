@@ -17,7 +17,9 @@ interface Props {
   gameSystemId: string
   primaryHealthStat: string
   isGameOver?: boolean
+  metadata?: Record<string, unknown>
   onStatsChange?: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
+  onMetadataChange?: (metadata: Record<string, unknown>) => void
 }
 
 export default function CharacterSheet({
@@ -28,7 +30,9 @@ export default function CharacterSheet({
   gameSystemId,
   primaryHealthStat,
   isGameOver = false,
+  metadata: initialMetadata,
   onStatsChange,
+  onMetadataChange,
 }: Props) {
   const [currentStats, setCurrentStats] = useState(initialCurrentStats)
   const [currentInitialStats, setCurrentInitialStats] = useState(initialStats)
@@ -37,6 +41,24 @@ export default function CharacterSheet({
   const [showGameOverModal, setShowGameOverModal] = useState(false)
   const [editingCell, setEditingCell] = useState<{ id: string; value: string } | null>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
+
+  // Gold Pieces and Codewords state (Fighting Fantasy only)
+  const [gold, setGold] = useState<number>(
+    typeof initialMetadata?.gold === 'number' ? initialMetadata.gold : 0,
+  )
+  const [codewords, setCodewords] = useState<string[]>(
+    Array.isArray(initialMetadata?.codewords) ? (initialMetadata.codewords as string[]) : [],
+  )
+  const [newCodeword, setNewCodeword] = useState('')
+
+  // Sync metadata when parent passes updated values
+  useEffect(() => {
+    if (typeof initialMetadata?.gold === 'number') setGold(initialMetadata.gold)
+  }, [initialMetadata?.gold])
+
+  useEffect(() => {
+    if (Array.isArray(initialMetadata?.codewords)) setCodewords(initialMetadata.codewords as string[])
+  }, [initialMetadata?.codewords])
 
   // Sync when parent (LeftColumnClient) updates shared stats — e.g. after a CombatPanel round
   useEffect(() => {
@@ -76,6 +98,18 @@ export default function CharacterSheet({
       onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
       const nowGameOver = ((data.stats[primaryHealthStat] as number | undefined) ?? 1) <= 0
       if (!wasGameOver && nowGameOver) setShowGameOverModal(true)
+    }
+  }
+
+  async function patchMetadata(patch: Record<string, unknown>) {
+    const res = await fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ metadata: patch }),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { metadata?: Record<string, unknown> }
+      if (data.metadata) onMetadataChange?.(data.metadata)
     }
   }
 
@@ -137,6 +171,27 @@ export default function CharacterSheet({
       setCurrentStats(data.stats)
       onStatsChange?.(data.stats, data.initialStats ?? currentInitialStats)
     }
+  }
+
+  function handleGoldChange(delta: number) {
+    const newGold = Math.max(0, gold + delta)
+    setGold(newGold)
+    void patchMetadata({ gold: newGold })
+  }
+
+  function handleAddCodeword() {
+    const trimmed = newCodeword.trim()
+    if (!trimmed || codewords.includes(trimmed)) return
+    const updated = [...codewords, trimmed]
+    setCodewords(updated)
+    setNewCodeword('')
+    void patchMetadata({ codewords: updated })
+  }
+
+  function handleRemoveCodeword(word: string) {
+    const updated = codewords.filter((w) => w !== word)
+    setCodewords(updated)
+    void patchMetadata({ codewords: updated })
   }
 
   const isGrailQuest = gameSystemId === 'grail-quest'
@@ -451,6 +506,73 @@ export default function CharacterSheet({
           </div>
         )
       })()}
+      {isFightingFantasy && (
+        <div className="mt-4 space-y-4">
+          {/* Gold Pieces counter */}
+          <div>
+            <h3 className="font-body text-text-muted font-medium text-sm mb-1">Gold Pieces</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleGoldChange(-1)}
+                disabled={gold <= 0}
+                className="w-7 h-7 rounded border font-bold disabled:opacity-40"
+                aria-label="Decrease gold by 1"
+              >
+                −
+              </button>
+              <span className="font-mono text-accent-blue w-10 text-center text-lg" aria-label={`Gold: ${gold}`}>
+                {gold}
+              </span>
+              <button
+                onClick={() => handleGoldChange(+1)}
+                className="w-7 h-7 rounded border font-bold"
+                aria-label="Increase gold by 1"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Codewords checklist */}
+          <div>
+            <h3 className="font-body text-text-muted font-medium text-sm mb-1">Codewords</h3>
+            {codewords.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {codewords.map((word) => (
+                  <li key={word} className="flex items-center gap-2">
+                    <span className="font-mono text-sm">{word}</span>
+                    <button
+                      onClick={() => handleRemoveCodeword(word)}
+                      className="text-text-muted hover:text-red-600 text-xs px-1"
+                      aria-label={`Remove codeword ${word}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newCodeword}
+                onChange={(e) => setNewCodeword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddCodeword() }}
+                placeholder="New codeword"
+                className="border rounded px-2 py-1 text-sm flex-1 min-w-0"
+                aria-label="New codeword"
+              />
+              <button
+                onClick={handleAddCodeword}
+                disabled={!newCodeword.trim()}
+                className="px-3 py-1 text-sm border rounded disabled:opacity-40"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showGameOverModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4 text-center">
