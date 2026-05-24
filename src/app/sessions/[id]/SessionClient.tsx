@@ -16,6 +16,8 @@ interface Props {
   creationRolls: CreationRolls | null
   onCreationRollsDismiss: () => void
   onStatsChange: (stats: Record<string, unknown>, initialStats: Record<string, unknown>) => void
+  metadata?: Record<string, unknown>
+  onMetadataChange?: (metadata: Record<string, unknown>) => void
 }
 
 /**
@@ -36,6 +38,8 @@ export default function SessionClient({
   creationRolls,
   onCreationRollsDismiss,
   onStatsChange,
+  metadata,
+  onMetadataChange,
 }: Props) {
   return (
     <>
@@ -55,6 +59,8 @@ export default function SessionClient({
         primaryHealthStat={primaryHealthStat}
         isGameOver={isGameOver}
         onStatsChange={onStatsChange}
+        metadata={metadata}
+        onMetadataChange={onMetadataChange}
       />
     </>
   )

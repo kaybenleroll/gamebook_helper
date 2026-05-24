@@ -38,6 +38,10 @@ describe('grailQuest system definition', () => {
   it('is registered in the global registry', () => {
     expect(gameSystemRegistry.get('grail-quest')).toBe(grailQuest)
   })
+
+  it('does not define initialMetadata (no gold or codewords for GQ)', () => {
+    expect(grailQuest.initialMetadata).toBeUndefined()
+  })
 })
 
 describe('XP_PER_LP', () => {
