@@ -3,6 +3,9 @@ import '../../../../../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../../../../../lib/game-systems/registry'
 import { applyXpThreshold } from '../../../../../../../lib/game-systems/grail-quest'
 import { db } from '../../../../../../../lib/db'
+// NOTE: applyXpThreshold is still imported here because the post-combat XP flow
+// requires LP-threshold recalculation which is Grail Quest-specific bookkeeping
+// tracked in initialStats; this will be addressed in a follow-up slice.
 import { sessions, characters, combats, combatRounds } from '../../../../../../../lib/db/schema'
 import { eq, count, and, desc } from 'drizzle-orm'
 import type { CombatOutcomeValue } from '../../../../../../../lib/db/schema'
@@ -127,9 +130,11 @@ export async function POST(
           ? (characterStats['lifePoints'] as number)
           : 0
       const playerNewLp = playerCurrentLp - finalDamageTaken
-      const grailQuestKnockoutThreshold = session.gameSystemId === 'grail-quest' ? 5 : 0
-      if (newEnemyLp <= grailQuestKnockoutThreshold) {
+      const knockoutThreshold = gameSystem.combat?.knockoutThreshold ?? null
+      if (knockoutThreshold !== null && newEnemyLp <= knockoutThreshold) {
         finalOutcome = newEnemyLp <= 0 ? 'player_won' : 'enemy_knocked_out'
+      } else if (newEnemyLp <= 0) {
+        finalOutcome = 'player_won'
       } else if (playerNewLp <= 0) {
         finalOutcome = 'player_lost'
       } else {
@@ -170,23 +175,38 @@ export async function POST(
       newStats = { ...newStats, [stat]: updated }
     }
 
-    // Handle XP award for GQ win (both outright kill and knockout)
+    // Handle post-combat awards (XP, stat deltas) via game-system module
     let xpPrompt = false
-    if ((finalOutcome === 'player_won' || finalOutcome === 'enemy_knocked_out') && session.gameSystemId === 'grail-quest') {
-      const metadata = combat.metadata as Record<string, unknown>
-      const enemyXp =
-        typeof metadata['enemyXp'] === 'number' ? (metadata['enemyXp'] as number) : 0
-      if (enemyXp > 0) {
-        const currentXp =
-          typeof newStats['experiencePoints'] === 'number'
-            ? (newStats['experiencePoints'] as number)
-            : 0
-        newStats = { ...newStats, experiencePoints: currentXp + enemyXp }
-        const xpResult = applyXpThreshold(newStats, newInitialStats)
-        newStats = xpResult.stats
-        newInitialStats = xpResult.initialStats
-      } else {
-        xpPrompt = true
+    if (finalOutcome === 'player_won' || finalOutcome === 'enemy_knocked_out') {
+      const postCombat = gameSystem.combat?.applyPostCombat?.(combat, newStats)
+      if (postCombat) {
+        const { xpGained, statDeltas } = postCombat
+        if (typeof xpGained === 'number' && xpGained > 0) {
+          const currentXp =
+            typeof newStats['experiencePoints'] === 'number'
+              ? (newStats['experiencePoints'] as number)
+              : 0
+          newStats = { ...newStats, experiencePoints: currentXp + xpGained }
+          const xpResult = applyXpThreshold(newStats, newInitialStats)
+          newStats = xpResult.stats
+          newInitialStats = xpResult.initialStats
+        } else if (!xpGained) {
+          // Module returned no XP — check if this system tracks XP at all
+          const hasXpStat = gameSystem.stats.some((s) => s.key === 'experiencePoints')
+          if (hasXpStat) xpPrompt = true
+        }
+        if (statDeltas) {
+          for (const [stat, delta] of Object.entries(statDeltas)) {
+            const statDef = gameSystem.stats.find((s) => s.key === stat)
+            if (!statDef) continue
+            const current =
+              typeof newStats[stat] === 'number' ? (newStats[stat] as number) : statDef.min
+            newStats = {
+              ...newStats,
+              [stat]: Math.max(statDef.min, Math.min(statDef.max ?? Infinity, current + delta)),
+            }
+          }
+        }
       }
     }
 

@@ -11,6 +11,13 @@ export type StatRollDetail = {
 }
 export type CreationRolls = Record<string, StatRollDetail>
 
+export type SessionMetadata = {
+  gold?: number
+  codewords?: string[]
+  startNarrative?: string
+  [key: string]: unknown
+}
+
 export const combatOutcomeEnum = [
   'in_progress',
   'player_won',
@@ -26,6 +33,7 @@ export const sessions = sqliteTable('sessions', {
   bookTitle: text('book_title').notNull(),
   notes: text('notes'),
   panelOrder: text('panel_order'),
+  metadata: text('metadata', { mode: 'json' }).$type<SessionMetadata>(),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),

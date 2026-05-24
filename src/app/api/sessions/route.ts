@@ -4,7 +4,7 @@ import '../../../lib/game-systems/index'
 import { gameSystemRegistry } from '../../../lib/game-systems/registry'
 import { db } from '../../../lib/db'
 import { sessions, characters, maps } from '../../../lib/db/schema'
-import type { CreationRolls, RollAttempt } from '../../../lib/db/schema'
+import type { CreationRolls, RollAttempt, SessionMetadata } from '../../../lib/db/schema'
 import logger from '../../../lib/logger'
 
 function rollOnce(count: number, sides: number): number[] {
@@ -76,8 +76,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
+    const initialMetadata: SessionMetadata = {}
+
     const sessionId = db.transaction((tx) => {
-      const result = tx.insert(sessions).values({ gameSystemId, bookTitle }).returning({ id: sessions.id }).all()
+      const result = tx.insert(sessions).values({ gameSystemId, bookTitle, metadata: initialMetadata }).returning({ id: sessions.id }).all()
       const session = result[0]
       tx.insert(characters).values({ sessionId: session.id, stats: initialStats, initialStats, creationRolls }).run()
       tx.insert(maps).values({ sessionId: session.id, name: 'Map 1' }).run()

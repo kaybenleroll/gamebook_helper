@@ -39,6 +39,13 @@ export type EnemyStatField =
 export type CombatModule = {
   enemyStatFields: Array<EnemyStatField>
   primaryEnemyHealthStat: string
+  /**
+   * If set, combat ends when enemy HP drops to or below this value.
+   * Use 'enemy_knocked_out' outcome when HP is between 1 and this threshold;
+   * use 'player_won' when HP reaches 0.
+   * Systems without a knockout threshold leave this unset.
+   */
+  knockoutThreshold?: number
   validateEnemyStats(input: unknown): string[]
   start(input: unknown, options?: { initiativeOverride?: 'player' | 'enemy' }): { enemyState: unknown; metadata: unknown; startNarrative?: string }
   roundOptions(state: CombatState): RoundOption[]
@@ -57,6 +64,15 @@ export type CombatModule = {
     damageTaken: number
     outcome: CombatOutcome | null
   }
+  /**
+   * Optional post-combat hook called when the combat outcome is a player win
+   * or enemy knockout. Returns XP gained and any stat deltas to apply.
+   * Systems without post-combat awards may omit this method.
+   */
+  applyPostCombat?(
+    combat: unknown,
+    characterStats: unknown,
+  ): { xpGained?: number; statDeltas?: Record<string, number> }
 }
 
 export interface SpellDefinition {
@@ -86,4 +102,15 @@ export interface GameSystem {
   combat?: CombatModule
   spells?: SpellDefinition[]
   consumables?: ConsumableDefinition[]
+  /**
+   * Optional consumable-use handler. Computes the stat changes when a
+   * consumable item is used, capping heals against initialStats values.
+   * Returns the stat deltas to apply and a human-readable message.
+   * Systems that do not support consumable stat effects may omit this.
+   */
+  applyConsumable?(
+    item: unknown,
+    characterStats: unknown,
+    initialStats: unknown,
+  ): { statDeltas: Record<string, number>; message: string }
 }
