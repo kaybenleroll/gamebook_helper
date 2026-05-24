@@ -4,15 +4,22 @@ import { rollDice } from '../dice'
 
 // ---- FF combat type helpers ----
 
-interface FfEnemyState {
+export interface FfEnemyStats {
+  skill: number
+  stamina: number
+}
+
+export interface FfEnemyState {
   skill: number
   stamina: number
   initialStamina: number
 }
 
+export type FfMetadata = Record<string, unknown>
+
 // ---- FF combat module ----
 
-export const fightingFantasyCombat: CombatModule = {
+export const fightingFantasyCombat: CombatModule<FfEnemyStats, FfEnemyState, FfMetadata> = {
   knockoutThreshold: undefined,
 
   enemyStatFields: [
@@ -36,37 +43,36 @@ export const fightingFantasyCombat: CombatModule = {
     return errors
   },
 
-  start(input: unknown): { enemyState: unknown; metadata: unknown; startNarrative?: string } {
-    const s = input as Record<string, unknown>
-    const skill = typeof s.skill === 'number' ? s.skill : 0
-    const stamina = typeof s.stamina === 'number' ? s.stamina : 0
+  start(input: FfEnemyStats): { enemyState: FfEnemyState; metadata: FfMetadata; startNarrative?: string } {
+    const skill = typeof input.skill === 'number' ? input.skill : 0
+    const stamina = typeof input.stamina === 'number' ? input.stamina : 0
 
     const enemyState: FfEnemyState = { skill, stamina, initialStamina: stamina }
-    const metadata: Record<string, unknown> = {}
+    const metadata: FfMetadata = {}
 
     return { enemyState, metadata }
   },
 
-  roundOptions(_state: CombatState): RoundOption[] {
+  roundOptions(_state: CombatState<FfEnemyStats, FfEnemyState, FfMetadata>): RoundOption[] {
     return []
   },
 
   resolveRound(args: {
-    enemyStats: unknown
-    enemyState: unknown
-    metadata: unknown
+    enemyStats: FfEnemyStats
+    enemyState: FfEnemyState
+    metadata: FfMetadata
     characterStats: unknown
     chosenOptions: Record<string, unknown>
     combatModifiers: Record<string, unknown>
   }): {
-    enemyState: unknown
+    enemyState: FfEnemyState
     characterDeltas: Record<string, number>
     detail: unknown
     damageDealt: number
     damageTaken: number
     outcome: CombatOutcome | null
   } {
-    const enemyState = args.enemyState as FfEnemyState
+    const enemyState = args.enemyState
     const characterStats = args.characterStats as Record<string, unknown>
 
     const playerSkill = typeof characterStats['skill'] === 'number' ? (characterStats['skill'] as number) : 0

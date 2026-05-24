@@ -25,10 +25,14 @@ export type RoundOption = {
   default: boolean | number
 }
 
-export type CombatState = {
-  enemyStats: unknown
-  enemyState: unknown
-  metadata: unknown
+export type CombatState<
+  TEnemyStats = Record<string, unknown>,
+  TEnemyState = Record<string, unknown>,
+  TMetadata = Record<string, unknown>,
+> = {
+  enemyStats: TEnemyStats
+  enemyState: TEnemyState
+  metadata: TMetadata
   characterStats: unknown
 }
 
@@ -36,7 +40,11 @@ export type EnemyStatField =
   | { key: string; label: string; type: 'number' | 'text'; required: boolean; default?: string | number }
   | { key: string; label: string; type: 'radio'; options: Array<{ value: string; label: string }>; required?: boolean; default?: string }
 
-export type CombatModule = {
+export type CombatModule<
+  TEnemyStats = Record<string, unknown>,
+  TEnemyState = Record<string, unknown>,
+  TMetadata = Record<string, unknown>,
+> = {
   enemyStatFields: Array<EnemyStatField>
   primaryEnemyHealthStat: string
   /**
@@ -47,17 +55,20 @@ export type CombatModule = {
    */
   knockoutThreshold?: number
   validateEnemyStats(input: unknown): string[]
-  start(input: unknown, options?: { initiativeOverride?: 'player' | 'enemy' }): { enemyState: unknown; metadata: unknown; startNarrative?: string }
-  roundOptions(state: CombatState): RoundOption[]
+  start(
+    input: TEnemyStats,
+    options?: { initiativeOverride?: 'player' | 'enemy' },
+  ): { enemyState: TEnemyState; metadata: TMetadata; startNarrative?: string }
+  roundOptions(state: CombatState<TEnemyStats, TEnemyState, TMetadata>): RoundOption[]
   resolveRound(args: {
-    enemyStats: unknown
-    enemyState: unknown
-    metadata: unknown
+    enemyStats: TEnemyStats
+    enemyState: TEnemyState
+    metadata: TMetadata
     characterStats: unknown
     chosenOptions: Record<string, unknown>
     combatModifiers: Record<string, unknown>
   }): {
-    enemyState: unknown
+    enemyState: TEnemyState
     characterDeltas: Record<string, number>
     detail: unknown
     damageDealt: number
@@ -100,7 +111,8 @@ export interface GameSystem {
   stats: StatDefinition[]
   primaryHealthStat: string
   defaultDice: DiceSpec
-  combat?: CombatModule
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  combat?: CombatModule<any, any, any>
   spells?: SpellDefinition[]
   consumables?: ConsumableDefinition[]
   /**
