@@ -36,6 +36,7 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 
 - **Always use `gh` CLI for any `mcp__github__*` call involving arrays or numeric IDs.** Upstream SDK bug (anthropics/claude-code#18260) serialises these as strings.
 - `just <target>` ignores the "Working directory" prompt field — always prefix with `cd /home/mcooney/workspace/gamebook_helper &&`.
+- **Don't add overly-specific permission allowlist entries to solve `cd ... && just` prompt friction** — split the command into separate Bash calls instead.
 
 ## Workflow Sequencing
 
@@ -45,11 +46,13 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 - **Use /diagnose when something fails with no known root cause** — the issue emerges from the diagnosis; create it after, not before.
 - **Defer issue creation and branching until exploration stabilises; batch as one issue** — incremental issue creation during rapid iteration interrupts flow.
 - **Skip the written plan when grill-me and stress-test have closed ambiguity** — the conversation IS the plan.
+- **Include naturally symmetric features in the same PR** — split PRs fragment design consistency and the counterpart rarely gets revisited.
 
 ## Scope Discipline
 
 - **`/pcc` is decision support only** — present pros/cons/recommendation then stop; do not act until user directs.
 - **Don't promote deferred backlog items to next action without explicit user confirmation** — scope decisions rest with the user.
+- **Get explicit approval before spawning a subagent to build exploratory or demo UI** — propose the work, wait for yes.
 - Do not suggest removing the `git push --force` permission gate — rebase friction is accepted in exchange for safety.
 - **Long-running background tasks use the main thread's background queue (Monitor/TaskOutput), not subagents** — subagents exit after initiating without lifecycle awareness.
 - Analyse systematic failures before re-running expensive experiments — re-collecting without prompt changes produces the same result.
@@ -59,5 +62,5 @@ Delegate ALL non-trivial work to subagents — research, exploration, implementa
 - **Spec files belong in git-tracked `docs/`**, not `.scratch/` — ephemeral staging loses version history.
 - **Before assuming a file is active/stale/unused**, check git history, hooks, and compose files — script wiring may live in compose, not just Justfile.
 - **Verify `.scratch/` docs against actual code before including in subagent prompts** — staging docs drift during refactors.
-- **Write `.scratch/NEXT_STEPS.md`** and refresh before each new session — stale handoff notes reopen already-failed approaches.
+- **Name `.scratch/` handoff files `{topic}_handoff_YYYY-MM-DD.md`** — topic makes context findable, date surfaces staleness without opening the file.
 - **Respect Chesterton's Fence** — file an issue before removing structure whose purpose isn't obvious.

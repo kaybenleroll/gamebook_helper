@@ -44,10 +44,12 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
 - Install packages: `podman exec gamebook-app npm install <pkg>`; to remove, edit `package.json` directly — `npm uninstall` only strips the container's `node_modules`
 - Backwards compatibility is never a blocker — break it when architecture or design is better
 - `.scratch/` is gitignored — stage experimental files there until patterns stabilise, then promote; never commit from it
-- Tailwind `@theme` silently drops CSS custom properties using `var()` — use raw values inside `@theme` blocks
-- Next.js 15 + pino routes must declare `export const runtime = 'nodejs'` — Edge runtime is incompatible
+- Tailwind `@theme`: raw values only (no `var()`); consolidate `:root` and `@theme` into one block — splitting them creates circular references
+- Next.js 15 + pino routes and middleware must declare `export const runtime = 'nodejs'` — Edge runtime is incompatible
 - E2E test sessions must use the `[test]` name prefix for global-teardown cleanup
+- Game-over state (primary health stat = 0) requires an explicit modal — silent button disabling is insufficient feedback
 - SSR caches game-system module state at page load — new fields need a hard browser refresh
+- Map models are environment-agnostic — maps include forests, towns, clearings, and dungeons; never assume all maps are dungeon-like or grid-based; maps are player-created artefacts, not book-derived — most books contain none
 
 ## Behavioural Rules
 
@@ -62,3 +64,4 @@ All app commands run via `podman exec gamebook-app <cmd>` — never on the host.
 - Use the `git-workflow` skill before any GitHub operation (issue creation, branching, PRs, merges)
 - Use `/new-feature` for new features — sequences grill-me → write-a-prd → stress-test → prd-to-issues → git-workflow
 - Skip `/brainstorming` — design refinement in this project happens through direct dialogue on proposed changes
+- Deletion friction (delete + recreate session to change stats) is deliberate — don't add edit-in-place shortcuts
